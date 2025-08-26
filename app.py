@@ -9,6 +9,8 @@ from datetime import datetime
 import os
 from openpyxl import Workbook, load_workbook
 import time as time_module
+import time
+import random
 
 app = Flask(__name__)
 
@@ -20,6 +22,11 @@ USE_GOOGLE_SHEETS = True  # Set via /configure later if needed
 print(f"USE_GOOGLE_SHEETS: {USE_GOOGLE_SHEETS}")
 if USE_GOOGLE_SHEETS:
     print(f"GOOGLE_SHEET_URL: {GOOGLE_SHEET_URL}")
+
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
+})
 
 # In-memory storage
 watchlists = {}  # {sheet_name: [stocks]}
@@ -101,21 +108,38 @@ def load_watchlists():
 
 
 def fetch_stock_price(symbol):
-    print("🔧 fetchstock() function was called!")
-    print(f"🔍 Fetching price for: {symbol}")  # 👈 ADD THIS
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="2d", interval="15m")
-        if not hist.empty:
-            price = hist['Close'].iloc[-2] if len(hist) >= 2 else hist['Close'].iloc[-1]
-            print(f"✅ {symbol} → ₹{price:.2f}")  # 👈 SUCCESS
-            return round(float(price), 2)
-        else:
-            print(f"❌ {symbol} → No data returned from yfinance")  # 👈 FAILURE
-        return 0.0
-    except Exception as e:
-        print(f"💥 Error fetching {symbol}: {e}")  # 👈 REAL ERROR
-        return 0.0
+    print(f"🔍 Fetching price for: {symbol}")
+    
+    for attempt in range(3):  # Retry up to 3 times
+        try:
+            # Random delay to avoid rate limiting
+            time.sleep(random.uniform(1.0, 2.0))
+
+            # Use custom session
+            ticker = yf.Ticker(symbol, session=session)
+            hist = ticker.history(period="2d", interval="15m")
+
+            if not hist.empty:
+                # Get most recent completed candle (second last if available)
+                if len(hist) >= 2:
+                    current_price = hist['Close'].iloc[-2]
+                else:
+                    current_price = hist['Close'].iloc[-1]
+
+                current_price = round(float(current_price), 2)
+                print(f"✅ {symbol} → ₹{current_price:.2f}")
+                return current_price
+            else:
+                print(f"🟡 {symbol} → No data in history (attempt {attempt + 1}/3)")
+
+        except Exception as e:
+            print(f"⚠️ Error fetching {symbol} (attempt {attempt + 1}/3): {e}")
+            if "404" in str(e) or "401" in str(e):
+                break  # Don't retry if symbol not found
+            time.sleep(2 ** attempt)  # Exponential backoff
+
+    print(f"❌ Failed to fetch {symbol} after 3 attempts")
+    return 0.0
 
 
 def check_and_log_target_hit(sheet_name, scrip, target, current):
@@ -259,6 +283,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
 
