@@ -15,7 +15,7 @@ app = Flask(__name__)
 # Configuration
 LOG_FILE = "target_hit_log.xlsx"
 DATA_FILE = "dailystock.xlsx"
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/19zWk7yGv7G3YIwP9x6-bC6YEV39yRqNidkGhXzYYyGk/edit?usp=drive_link"  # Change this or make dynamic
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1qPeDQOzgiCrfp1h32KUyn5CHD509yR8E_ggxfjFtJOc/edit?usp=sharing"  # Change this or make dynamic
 USE_GOOGLE_SHEETS = True  # Set via /configure later if needed
 print(f"USE_GOOGLE_SHEETS: {USE_GOOGLE_SHEETS}")
 if USE_GOOGLE_SHEETS:
@@ -63,9 +63,10 @@ def load_watchlists():
 
         # Process each sheet
         for sheet_name, df in sheets.items():
+            print(f"🔍 Raw columns in sheet '{sheet_name}': {list(df.columns)}")  # 🔍 DEBUG
             df.columns = df.columns.str.strip().str.lower()
             if 'scrip name' not in df or 'target price' not in df:
-                print(f"Sheet '{sheet_name}' missing 'Scrip Name' or 'Target Price' column")
+                print(f"⚠️ Sheet '{sheet_name}' missing 'Scrip Name' or 'Target Price' column")
                 continue
 
             stocks = []
@@ -252,5 +253,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
