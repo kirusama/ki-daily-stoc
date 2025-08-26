@@ -23,11 +23,6 @@ print(f"USE_GOOGLE_SHEETS: {USE_GOOGLE_SHEETS}")
 if USE_GOOGLE_SHEETS:
     print(f"GOOGLE_SHEET_URL: {GOOGLE_SHEET_URL}")
 
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
-})
-
 # In-memory storage
 watchlists = {}  # {sheet_name: [stocks]}
 target_hit_logged = {}  # {sheet_name: {scrip_name: bool}}
@@ -109,18 +104,19 @@ def load_watchlists():
 
 def fetch_stock_price(symbol):
     print(f"🔍 Fetching price for: {symbol}")
-    
-    for attempt in range(3):  # Retry up to 3 times
+
+    for attempt in range(3):
         try:
             # Random delay to avoid rate limiting
             time.sleep(random.uniform(1.0, 2.0))
 
-            # Use custom session
-            ticker = yf.Ticker(symbol, session=session)
-            hist = ticker.history(period="2d", interval="15m")
+            # ⚠️ Remove custom session, use default
+            ticker = yf.Ticker(symbol)
+
+            # Try safer period/interval
+            hist = ticker.history(period="1d", interval="5m")
 
             if not hist.empty:
-                # Get most recent completed candle (second last if available)
                 if len(hist) >= 2:
                     current_price = hist['Close'].iloc[-2]
                 else:
@@ -135,11 +131,12 @@ def fetch_stock_price(symbol):
         except Exception as e:
             print(f"⚠️ Error fetching {symbol} (attempt {attempt + 1}/3): {e}")
             if "404" in str(e) or "401" in str(e):
-                break  # Don't retry if symbol not found
-            time.sleep(2 ** attempt)  # Exponential backoff
+                break
+            time.sleep(2 ** attempt)
 
     print(f"❌ Failed to fetch {symbol} after 3 attempts")
     return 0.0
+
 
 
 def check_and_log_target_hit(sheet_name, scrip, target, current):
@@ -283,6 +280,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
 
