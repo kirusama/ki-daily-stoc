@@ -102,43 +102,33 @@ def load_watchlists():
         print(f"Error loading data: {e}")
 
 
-def fetch_stock_price(symbol):
+def fetch_stock_price(symbol: str) -> float:
     print(f"🔍 Fetching price for: {symbol}")
+    try:
+        ticker = yf.Ticker(symbol)
 
-    for attempt in range(3):
-        try:
-            # Random delay to avoid rate limiting
-            time.sleep(random.uniform(1.0, 2.0))
+        # 1) Try fast_info
+        price = ticker.fast_info.get("last_price")
+        if price:
+            price = round(float(price), 2)
+            print(f"✅ {symbol} → ₹{price:.2f} (fast_info)")
+            return price
 
-            # ⚠️ Remove custom session, use default
-            ticker = yf.Ticker(symbol)
+        # 2) Try download() fallback
+        df = yf.download(symbol, period="1d", interval="1m")
+        if not df.empty:
+            price = round(float(df["Close"].iloc[-1]), 2)
+            print(f"✅ {symbol} → ₹{price:.2f} (download)")
+            return price
 
-            # Try safer period/interval
-            hist = ticker.history(period="1d", interval="5m")
+        # 3) Nothing worked
+        print(f"❌ {symbol} → No price data available")
+        return 0.0
 
-            if not hist.empty:
-                if len(hist) >= 2:
-                    current_price = hist['Close'].iloc[-2]
-                else:
-                    current_price = hist['Close'].iloc[-1]
-
-                current_price = round(float(current_price), 2)
-                print(f"✅ {symbol} → ₹{current_price:.2f}")
-                return current_price
-            else:
-                print(f"🟡 {symbol} → No data in history (attempt {attempt + 1}/3)")
-
-        except Exception as e:
-            print(f"⚠️ Error fetching {symbol} (attempt {attempt + 1}/3): {e}")
-            if "404" in str(e) or "401" in str(e):
-                break
-            time.sleep(2 ** attempt)
-
-    print(f"❌ Failed to fetch {symbol} after 3 attempts")
-    return 0.0
-
-
-
+    except Exception as e:
+        print(f"⚠️ Error fetching {symbol}: {e}")
+        return 0.0
+        
 def check_and_log_target_hit(sheet_name, scrip, target, current):
     if current >= target:
         if not target_hit_logged[sheet_name][scrip]:
@@ -280,6 +270,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
 
