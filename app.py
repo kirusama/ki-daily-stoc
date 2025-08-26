@@ -101,14 +101,19 @@ def load_watchlists():
 
 
 def fetch_stock_price(symbol):
+    print(f"🔍 Fetching price for: {symbol}")  # 👈 ADD THIS
     try:
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period="2d", interval="15m")
         if not hist.empty:
             price = hist['Close'].iloc[-2] if len(hist) >= 2 else hist['Close'].iloc[-1]
+            print(f"✅ {symbol} → ₹{price:.2f}")  # 👈 SUCCESS
             return round(float(price), 2)
+        else:
+            print(f"❌ {symbol} → No data returned from yfinance")  # 👈 FAILURE
         return 0.0
-    except:
+    except Exception as e:
+        print(f"💥 Error fetching {symbol}: {e}")  # 👈 REAL ERROR
         return 0.0
 
 
@@ -253,6 +258,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
 
