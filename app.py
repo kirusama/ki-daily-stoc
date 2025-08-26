@@ -101,6 +101,7 @@ def load_watchlists():
 
 
 def fetch_stock_price(symbol):
+    print("🔧 fetchstock() function was called!")
     print(f"🔍 Fetching price for: {symbol}")  # 👈 ADD THIS
     try:
         ticker = yf.Ticker(symbol)
@@ -258,6 +259,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🌍 Open http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
 
