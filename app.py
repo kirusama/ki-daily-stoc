@@ -35,30 +35,44 @@ def load_watchlists():
         if USE_GOOGLE_SHEETS:
             if not GOOGLE_SHEET_URL:
                 raise ValueError("Google Sheets URL not set")
+            
+            # Convert Google Sheets link to CSV export URL
             csv_url = GOOGLE_SHEET_URL.replace("/edit?usp=sharing", "/export?format=csv")
             response = requests.get(csv_url)
-            df = pd.read_csv(StringIO(response.text))
+            response.raise_for_status()
+
+            # Use Python engine + skip bad lines to avoid parsing crashes
+            df = pd.read_csv(
+                StringIO(response.text),
+                on_bad_lines='skip',      # Skip problematic rows
+                engine='python',          # Use Python parser (handles quotes/newlines better)
+                skipinitialspace=True,    # Ignore spaces after commas
+                encoding='utf-8'
+            )
             sheets = {"Watchlist 1": df}
+
         else:
             if not os.path.exists(DATA_FILE):
                 raise FileNotFoundError(f"{DATA_FILE} not found")
             xls = pd.ExcelFile(DATA_FILE)
             sheets = {sheet: xls.parse(sheet) for sheet in xls.sheet_names}
 
+        # Process each sheet
         for sheet_name, df in sheets.items():
             df.columns = df.columns.str.strip().str.lower()
             if 'scrip name' not in df or 'target price' not in df:
+                print(f"Sheet '{sheet_name}' missing 'Scrip Name' or 'Target Price' column")
                 continue
 
             stocks = []
             target_hit_logged[sheet_name] = {}
             for _, row in df.iterrows():
                 name = str(row['scrip name']).strip()
-                if not name or name.lower() == 'nan':
+                if not name or name.lower() in ('nan', ''):
                     continue
                 try:
                     target = float(row['target price'])
-                except:
+                except (ValueError, TypeError):
                     continue
 
                 yf_symbol = name if name.endswith(('.NS', '.BO')) else f"{name}.NS"
@@ -70,7 +84,13 @@ def load_watchlists():
                     "yf_symbol": yf_symbol
                 })
                 target_hit_logged[sheet_name][name] = False
-            watchlists[sheet_name] = stocks
+
+            if stocks:
+                watchlists[sheet_name] = stocks
+                print(f"✅ Loaded {len(stocks)} stocks from sheet '{sheet_name}'")
+            else:
+                print(f"⚠️ No valid stocks found in sheet '{sheet_name}'")
+
     except Exception as e:
         print(f"Error loading data: {e}")
 
@@ -217,3 +237,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
 
     app.run(host="0.0.0.0", port=port)
+
