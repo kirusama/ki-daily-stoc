@@ -15,7 +15,7 @@ app = Flask(__name__)
 # Configuration
 LOG_FILE = "target_hit_log.xlsx"
 DATA_FILE = "dailystock.xlsx"
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/19zWk7yGv7G3YIwP9x6-bC6YEV39yRqNidkGhXzYYyGk/edit?gid=0#gid=0"  # Change this or make dynamic
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/19zWk7yGv7G3YIwP9x6-bC6YEV39yRqNidkGhXzYYyGk/edit?usp=drive_link"  # Change this or make dynamic
 USE_GOOGLE_SHEETS = True  # Set via /configure later if needed
 
 # In-memory storage
@@ -215,4 +215,5 @@ if __name__ == "__main__":
 
     # Run Flask
     port = int(os.environ.get("PORT", 5000))
+
     app.run(host="0.0.0.0", port=port)
