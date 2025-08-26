@@ -17,6 +17,9 @@ LOG_FILE = "target_hit_log.xlsx"
 DATA_FILE = "dailystock.xlsx"
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/19zWk7yGv7G3YIwP9x6-bC6YEV39yRqNidkGhXzYYyGk/edit?usp=drive_link"  # Change this or make dynamic
 USE_GOOGLE_SHEETS = True  # Set via /configure later if needed
+print(f"USE_GOOGLE_SHEETS: {USE_GOOGLE_SHEETS}")
+if USE_GOOGLE_SHEETS:
+    print(f"GOOGLE_SHEET_URL: {GOOGLE_SHEET_URL}")
 
 # In-memory storage
 watchlists = {}  # {sheet_name: [stocks]}
@@ -27,6 +30,7 @@ monitoring_active = True
 
 
 def load_watchlists():
+    print("🔧 load_watchlists() function was called!")
     global watchlists, target_hit_logged
     watchlists.clear()
     target_hit_logged.clear()
@@ -226,7 +230,18 @@ def static_file(filename):
 
 
 if __name__ == "__main__":
-    # Load initial data
+    # Create sample file if missing
+    if not os.path.exists(DATA_FILE):
+        print(f"📁 {DATA_FILE} not found. Creating a sample file...")
+        sample_df = pd.DataFrame({
+            "Scrip Name": ["RELIANCE", "TATASTEEL", "INFY"],
+            "Target Price": [3000.0, 180.0, 1500.0]
+        })
+        sample_df.to_excel(DATA_FILE, sheet_name="Watchlist 1", index=False)
+        print("✅ Sample file created.")
+
+    # ✅ Ensure this is present:
+    print("🔄 Loading watchlists...")
     load_watchlists()
 
     # Start background monitor
@@ -235,6 +250,7 @@ if __name__ == "__main__":
 
     # Run Flask
     port = int(os.environ.get("PORT", 5000))
+    print(f"🌍 Open http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
 
-    app.run(host="0.0.0.0", port=port)
 
