@@ -1,9 +1,8 @@
 Flask==2.3.3
 yfinance==0.2.25
-pandas
 requests==2.31.0
 openpyxl==3.1.2
 Werkzeug==2.3.7
 Jinja2==3.1.2
 numpy==1.24.4
-
+pandas=latest
