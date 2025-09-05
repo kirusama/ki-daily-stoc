@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stock Alert Monitor</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <style>
+    tr.target-hit { background-color: #d4edda; }
+  </style>
+</head>
+<body class="section">
+  <div class="container">
+    <h1 class="title">📈 Stock Alert Monitor</h1>
+
+    <div class="buttons">
+      <button id="btn-refresh-sheet" class="button is-link">Refresh Sheet</button>
+      <button id="btn-refresh-all" class="button is-success">Manual Fetch Prices</button>
+      <button id="btn-refresh-tab" class="button is-warning">Refresh Current Watchlist</button>
+    </div>
+
+    <div id="tabs" class="tabs is-boxed">
+      <ul id="tab-list"></ul>
+    </div>
+
+    <div id="table-container"></div>
+  </div>
+
+  <script>
+    let watchlists = {};
+    let currentTab = null;
+
+    async function fetchWatchlists() {
+      let res = await fetch("/api/watchlists/");
+      let data = await res.json();
+      watchlists = data.watchlists;
+      renderTabs();
+    }
+
+    function renderTabs() {
+      const tabList = document.getElementById("tab-list");
+      tabList.innerHTML = "";
+      for (let tab in watchlists) {
+        let li = document.createElement("li");
+        li.innerHTML = `<a>${tab}</a>`;
+        li.onclick = () => { currentTab = tab; renderTable(); };
+        tabList.appendChild(li);
+      }
+      if (!currentTab && Object.keys(watchlists).length) {
+        currentTab = Object.keys(watchlists)[0];
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const container = document.getElementById("table-container");
+      if (!currentTab) return;
+      let rows = watchlists[currentTab] || [];
+      let html = `<table class="table is-striped is-fullwidth">
+        <thead><tr><th>Scrip</th><th>Target</th><th>Current</th><th>Status</th></tr></thead><tbody>`;
+      rows.forEach(r => {
+        let cls = r.status === "Target Hit!" ? "target-hit" : "";
+        html += `<tr class="${cls}">
+          <td>${r.scrip_name}</td>
+          <td>${r.target_price}</td>
+          <td>${r.current_price}</td>
+          <td>${r.status}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    document.getElementById("btn-refresh-sheet").onclick = async () => {
+      let res = await fetch("/api/refresh-sheet/", {method: "POST"});
+      watchlists = (await res.json()).watchlists;
+      renderTabs();
+    };
+
+    document.getElementById("btn-refresh-all").onclick = async () => {
+      let res = await fetch("/api/refresh-all-prices/", {method: "POST"});
+      watchlists = (await res.json()).watchlists;
+      renderTable();
+    };
+
+    document.getElementById("btn-refresh-tab").onclick = async () => {
+      if (!currentTab) return;
+      let res = await fetch(`/api/refresh-tab/${currentTab}/`, {method: "POST"});
+      watchlists = (await res.json()).watchlists;
+      renderTable();
+    };
+
+    fetchWatchlists();
+  </script>
+</body>
+</html>

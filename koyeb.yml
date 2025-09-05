@@ -1,0 +1,18 @@
+# koyeb.yml
+services:
+  - name: stock-alert-monitor
+    type: web
+    runtime: docker
+    env:
+      - key: DJANGO_SETTINGS_MODULE
+        value: stockmonitor.settings   # replace stockmonitor with your project folder
+    ports:
+      - port: 8000
+        protocol: http
+    docker:
+      dockerfile: Dockerfile
+    regions:
+      - fra   # or iad/sin depending on closest region
+    routes:
+      - path: /
+        port: 8000
