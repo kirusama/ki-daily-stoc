@@ -21,8 +21,11 @@ watchlists = {}
 target_hit_logged = {}
 # Map of sheet tab name → gid
 SHEET_TABS = {
-    "watchlist1": "0",        # usually first tab has gid=0
-    "watchlist2": "1087261693",
+    "Intraday": "0",        # usually first tab has gid=0
+    "Swing Risky": "1087261693",
+    "FIB ST": "1298523822",
+    "FIB MT": "1261523394",
+    "FIB LT": "774037465",
 }
 
 
@@ -291,3 +294,4 @@ def refresh_tab_prices(request, tab_name):
         print("refresh_tab_prices error:", e)
         traceback.print_exc()
         return HttpResponseBadRequest(str(e))
+
