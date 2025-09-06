@@ -156,47 +156,38 @@ def fetch_sheet():
 # ----------------- Core fetching logic (adapted from your reference) -----------------
 def fetch_stock_prices(sheet_name=None):
     """
-    Fetch current stock prices using yfinance using the exact logic you provided:
-    - 15-minute candles, last 2 days
-    - take the second-last completed candle as the 'current_price' when available
-    - set status and log first-time target hits
+    Fetch current stock prices using yfinance.
     This is synchronous (suitable for web request).
     """
     global watchlists, target_hit_logged
 
     sheets_to_update = [sheet_name] if sheet_name else list(watchlists.keys())
 
+    # The existing logic to fetch prices and update watchlists goes here.
+    # ... (your code to update the global 'watchlists' dictionary) ...
     for current_sheet in sheets_to_update:
         if current_sheet not in watchlists:
             continue
-
         # iterate stocks in this sheet
         for stock in watchlists[current_sheet]:
             try:
                 ticker = yf.Ticker(stock["yf_symbol"])
                 hist = ticker.history(period="2d", interval="15m")
-
                 if not hist.empty:
                     # choose the most recent completed candle (second last)
                     if len(hist) >= 2:
                         current_price = hist["Close"].iloc[-2]
                     else:
                         current_price = hist["Close"].iloc[-1]
-
                     stock["current_price"] = round(float(current_price), 2)
-
                     # Update status based on price comparison
                     if stock["current_price"] >= stock["target_price"]:
                         stock["status"] = "Target Hit!"
-
                         scrip_name = stock["scrip_name"]
-                        # initialize map entries if missing
                         if current_sheet not in target_hit_logged:
                             target_hit_logged[current_sheet] = {}
                         if scrip_name not in target_hit_logged[current_sheet]:
                             target_hit_logged[current_sheet][scrip_name] = False
-
-                        # If not yet logged, log and mark
                         if not target_hit_logged[current_sheet][scrip_name]:
                             try:
                                 log_target_hit(
@@ -214,15 +205,13 @@ def fetch_stock_prices(sheet_name=None):
                 else:
                     stock["current_price"] = 0.0
                     stock["status"] = "No Data"
-
             except Exception as e:
                 print(f"Error fetching {stock.get('scrip_name')}: {e}")
                 traceback.print_exc()
                 stock["current_price"] = 0.0
                 stock["status"] = "Error"
-
+    # This return statement is outside of the loops
     return watchlists
-
 
 # ----------------- Views / API endpoints -----------------
 def home(request):
@@ -284,15 +273,22 @@ def refresh_all_prices(request):
         return HttpResponseBadRequest(str(e))
 
 
+# AFTER
 @csrf_exempt
 def refresh_tab_prices(request, tab_name):
-    """Fetch prices for a single tab/watchlist and return updated watchlists."""
+    """Fetch prices for a single tab/watchlist and return ONLY that tab's data."""
+    global watchlists
     try:
-        updated = fetch_stock_prices(sheet_name=tab_name)
-        return JsonResponse({"watchlists": updated})
+        # This function still updates the global `watchlists` in the background
+        fetch_stock_prices(sheet_name=tab_name)
+        
+        # But we only return the data for the tab that was requested
+        updated_tab_data = watchlists.get(tab_name, [])
+        return JsonResponse({
+            "tab_name": tab_name,
+            "data": updated_tab_data
+        })
     except Exception as e:
         print("refresh_tab_prices error:", e)
         traceback.print_exc()
         return HttpResponseBadRequest(str(e))
-
-
