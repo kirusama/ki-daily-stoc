@@ -133,6 +133,21 @@
     }
 
     /**
+     * Custom sorting function for status column to prioritize "Target Hit!" first
+     */
+    function statusSortOrder(status) {
+      const order = {
+        "Target Hit!": 1,
+        "Below Target": 2,
+        "Not Fetched": 3,
+        "Not Checked": 4,
+        "No Data": 5,
+        "Error": 6
+      };
+      return order[status] || 99; // Unknown statuses go to the end
+    }
+
+    /**
      * Renders the stock data table using the DataTables library.
      */
     function renderTable() {
@@ -159,15 +174,77 @@
       // Add the basic table structure for DataTables
       container.innerHTML = `<table id="stock-table" class="table is-striped is-fullwidth"></table>`;
 
-      // Initialize DataTables
+      // Initialize DataTables with custom sorting for status
       stockDataTable = $('#stock-table').DataTable({
         data: tableData,
         columns: [
           { data: 'scrip_name', title: 'Scrip' },
-          { data: 'target_price', title: 'Target' },
-          { data: 'current_price', title: 'Current' },
-          { data: 'status', title: 'Status' }
+          {
+            data: 'target_price',
+            title: 'Target',
+            render: function (data, type, row) {
+              if (type === 'display' && data) {
+                return '₹' + parseFloat(data).toFixed(2);
+              }
+              return data;
+            }
+          },
+          {
+            data: 'current_price',
+            title: 'Current',
+            render: function (data, type, row) {
+              if (type === 'display' && data && data > 0) {
+                return '₹' + parseFloat(data).toFixed(2);
+              }
+              return data || '-';
+            }
+          },
+          {
+            data: 'status',
+            title: 'Status',
+            render: function (data, type, row) {
+              if (type === 'display') {
+                // Add different styling based on status
+                let statusClass = '';
+                if (data === 'Target Hit!') {
+                  statusClass = 'has-text-success has-text-weight-bold';
+                } else if (data === 'Below Target') {
+                  statusClass = 'has-text-info';
+                } else if (data === 'Error' || data === 'No Data') {
+                  statusClass = 'has-text-danger';
+                } else {
+                  statusClass = 'has-text-grey';
+                }
+                return `<span class="${statusClass}">${data}</span>`;
+              }
+              return data;
+            },
+            // Custom sorting for status column
+            type: 'num',
+            render: function (data, type, row) {
+              if (type === 'type' || type === 'sort') {
+                return statusSortOrder(data);
+              }
+              if (type === 'display') {
+                // Add different styling based on status
+                let statusClass = '';
+                if (data === 'Target Hit!') {
+                  statusClass = 'has-text-success has-text-weight-bold';
+                } else if (data === 'Below Target') {
+                  statusClass = 'has-text-info';
+                } else if (data === 'Error' || data === 'No Data') {
+                  statusClass = 'has-text-danger';
+                } else {
+                  statusClass = 'has-text-grey';
+                }
+                return `<span class="${statusClass}">${data}</span>`;
+              }
+              return data;
+            }
+          }
         ],
+        // Default sorting: Status column (index 3) in ascending order (Target Hit! first)
+        order: [[3, 'asc']],
         createdRow: function (row, data, dataIndex) {
           if (data.status === "Target Hit!") {
             $(row).addClass('target-hit');
@@ -176,7 +253,12 @@
         paging: false,
         searching: true,
         info: false,
-        responsive: true
+        responsive: true,
+        // Add some additional configuration for better UX
+        language: {
+          emptyTable: "No stocks found in this watchlist",
+          zeroRecords: "No matching stocks found"
+        }
       });
     }
 
@@ -195,29 +277,54 @@
 
     document.getElementById("btn-refresh-sheet").onclick = async () => {
       console.log("Refreshing sheet...");
-      const res = await fetch("/api/refresh-sheet/", { method: "POST" });
-      watchlists = (await res.json()).watchlists;
-      renderTabs(); // Re-render everything from tabs down
+      try {
+        const res = await fetch("/api/refresh-sheet/", { method: "POST" });
+        const data = await res.json();
+        watchlists = data.watchlists;
+        renderTabs(); // Re-render everything from tabs down
+        console.log("Sheet refreshed successfully");
+      } catch (error) {
+        console.error("Failed to refresh sheet:", error);
+      }
     };
 
     document.getElementById("btn-refresh-all").onclick = async () => {
       console.log("Refreshing all prices...");
-      const res = await fetch("/api/refresh-all-prices/", { method: "POST" });
-      watchlists = (await res.json()).watchlists;
-      renderTable(); // Just re-render the current table with new data
+      try {
+        const res = await fetch("/api/refresh-all-prices/", { method: "POST" });
+        const data = await res.json();
+        watchlists = data.watchlists;
+        renderTable(); // Just re-render the current table with new data
+
+        // Show processing info if available
+        if (data.processing_time) {
+          console.log(`All prices refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`);
+        }
+      } catch (error) {
+        console.error("Failed to refresh all prices:", error);
+      }
     };
 
     // AFTER
     document.getElementById("btn-refresh-tab").onclick = async () => {
       if (!currentTab) return;
       console.log(`Refreshing tab: ${currentTab}`);
-      let res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
+      try {
+        let res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
 
-      // New logic: Only update the data for the specific tab
-      let responseData = await res.json();
-      watchlists[responseData.tab_name] = responseData.data;
+        // New logic: Only update the data for the specific tab
+        let responseData = await res.json();
+        watchlists[responseData.tab_name] = responseData.data;
 
-      renderTable(); // Re-render the table with the fresh data
+        renderTable(); // Re-render the table with the fresh data
+
+        // Show processing info if available
+        if (responseData.processing_time) {
+          console.log(`Tab ${currentTab} refreshed in ${responseData.processing_time}s (${responseData.total_stocks} stocks)`);
+        }
+      } catch (error) {
+        console.error(`Failed to refresh tab ${currentTab}:`, error);
+      }
     };
 
     // --- Initial Load ---
