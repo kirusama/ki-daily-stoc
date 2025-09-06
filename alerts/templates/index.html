@@ -95,6 +95,13 @@
       const tabContainer = document.getElementById("tab-buttons");
       tabContainer.innerHTML = ""; // Clear existing tabs
 
+      // Check if watchlists exist
+      if (Object.keys(watchlists).length === 0) {
+        // No watchlists available, show message in table
+        renderTable();
+        return;
+      }
+
       // If currentTab is invalid or not set, default to the first available watchlist
       if (!currentTab || !watchlists[currentTab]) {
         currentTab = Object.keys(watchlists)[0] || null;
@@ -136,8 +143,20 @@
         stockDataTable.destroy();
       }
 
-      // Add the basic table structure for DataTables
       const container = document.getElementById("table-container");
+
+      // Check if there are no watchlists at all
+      if (Object.keys(watchlists).length === 0) {
+        container.innerHTML = `
+          <div class="notification is-info has-text-centered">
+            <p><strong>No watchlists found!</strong></p>
+            <p>Please click the "Refresh Watchlist" button to load your data.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Add the basic table structure for DataTables
       container.innerHTML = `<table id="stock-table" class="table is-striped is-fullwidth"></table>`;
 
       // Initialize DataTables
@@ -202,7 +221,8 @@
     };
 
     // --- Initial Load ---
-    fetchWatchlists();
+    // Check if watchlists exist on page load, if not show message
+    renderTabs();
   </script>
 </body>
 
