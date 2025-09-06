@@ -1,6 +1,7 @@
 import os
 import csv
 import re
+from io import StringIO
 import traceback
 from datetime import datetime
 import json
@@ -56,7 +57,8 @@ def discover_sheet_tabs():
     global SHEET_TABS
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/gviz/tq?gid=0"
     try:
-        resp = requests.get(url, timeout=15)  # Increased timeout for cloud
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()  # Raise error if download failed
         text = resp.text
         m = re.search(r"setResponse\((.*)\);", text, re.S)
         if not m:
@@ -113,9 +115,9 @@ def fetch_sheet():
             url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={SHEET_TABS[tab]}"
             print(f"📊 Fetching sheet data for {tab} from: {url}")
             
-            df = pd.read_csv(url, timeout=15)  # Increased timeout
+            df = pd.read_csv(StringIO(resp.text))
             df.columns = [c.strip() for c in df.columns]
-            
+
             print(f"📋 Columns in {tab}: {list(df.columns)}")
 
             rows = []
@@ -467,3 +469,4 @@ def refresh_tab_prices(request, tab_name):
         print(f"❌ refresh_tab_prices error for {tab_name}: {e}")
         traceback.print_exc()
         return HttpResponseBadRequest(f"Error processing {tab_name}: {str(e)}")
+
