@@ -1,7 +1,6 @@
 import os
 import csv
 import re
-from io import StringIO
 import traceback
 from datetime import datetime
 import json
@@ -12,13 +11,13 @@ from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict
+
 
 # --- Config ---
 GOOGLE_SHEET_ID = "1qPeDQOzgiCrfp1h32KUyn5CHD509yR8E_ggxfjFtJOc"  # <-- your public Google Sheet ID
 CSV_SHEET_BASE_URL = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet="
 
+# In-memory store
 watchlists = {}
 target_hit_logged = {}
 
@@ -30,11 +29,6 @@ SHEET_TABS = {
     "FIBOMT": "1261523394",
     "FIBOLT": "774037465",
 }
-
-# Batch processing configuration
-BATCH_SIZE = 25  # Smaller batch size for cloud deployment
-BATCH_DELAY = 2  # Longer delay between batches for cloud
-MAX_WORKERS = 3  # Fewer workers for cloud deployment
 
 # Log file path
 BASE_DIR = getattr(settings, "BASE_DIR", os.getcwd())
@@ -57,8 +51,7 @@ def discover_sheet_tabs():
     global SHEET_TABS
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/gviz/tq?gid=0"
     try:
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()  # Raise error if download failed
+        resp = requests.get(url, timeout=10)
         text = resp.text
         m = re.search(r"setResponse\((.*)\);", text, re.S)
         if not m:
@@ -103,183 +96,114 @@ def log_target_hit(sheet_name, scrip_name, target_price, hit_price):
 
 
 # ----------------- Sheet reading -----------------
-def fetch_sheet(tab):
+def fetch_sheet():
+    """Fetch all tabs into watchlists."""
+    global watchlists, target_hit_logged
+    if not SHEET_TABS:
+        discover_sheet_tabs()
+
+    new_watchlists = {}
+    for tab in SHEET_TABS:
+        try:
+            url = CSV_SHEET_BASE_URL + tab
+            df = pd.read_csv(url)
+            df.columns = [c.strip() for c in df.columns]
+
+            rows = []
+            for _, r in df.iterrows():
+                scrip = str(r.get("Scrip Name", "")).strip()
+                try:
+                    tp = float(r.get("Target Price", ""))
+                except:
+                    continue
+
+                yf_sym = scrip if "." in scrip else scrip + ".NS"
+                rows.append({
+                    "scrip_name": scrip,
+                    "target_price": tp,
+                    "yf_symbol": yf_sym,
+                    "current_price": 0.0,
+                    "status": "Not Fetched",
+                })
+
+            new_watchlists[tab] = rows
+            if tab not in target_hit_logged:
+                target_hit_logged[tab] = {r["scrip_name"]: False for r in rows}
+
+        except Exception as e:
+            print(f"⚠️ Error reading {tab}:", e)
+            new_watchlists[tab] = []
+
+    watchlists = new_watchlists
+    return watchlists
+
+
+# ----------------- Core fetching logic -----------------
+def fetch_stock_prices(sheet_name=None, scrips=None):
     """
-    Fetch a specific tab from Google Sheets into a pandas DataFrame.
+    Fetch current stock prices using yfinance.
+    Optionally restrict to a subset of scrips.
     """
-    try:
-        url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={SHEET_TABS[tab]}"
-        print(f"📊 Fetching sheet data for {tab} from: {url}")
-
-        # Fetch with requests (timeout added here)
-        import requests
-        from io import StringIO
-
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()  # Throw error if download fails
-
-        # Now read into pandas
-        df = pd.read_csv(StringIO(resp.text))
-        df.columns = [c.strip() for c in df.columns]  # Clean headers
-        return df
-
-    except Exception as e:
-        print(f"⚠️ Error reading {tab}: {e}")
-        return pd.DataFrame()
-
-# ----------------- Core fetching logic with improved error handling -----------------
-def fetch_single_stock_price(stock: Dict, sheet_name: str) -> Dict:
-    """Fetch price for a single stock and update its status."""
-    global target_hit_logged
-    
-    try:
-        print(f"📈 Fetching price for {stock['scrip_name']} ({stock['yf_symbol']})")
-        
-        ticker = yf.Ticker(stock["yf_symbol"])
-        # Use shorter period and interval for cloud deployment
-        hist = ticker.history(period="1d", interval="5m", timeout=10)
-
-        if not hist.empty:
-            # Get the most recent price
-            if len(hist) >= 2:
-                current_price = hist["Close"].iloc[-2]
-            else:
-                current_price = hist["Close"].iloc[-1]
-
-            stock["current_price"] = round(float(current_price), 2)
-
-            # Update status based on price comparison
-            if stock["current_price"] >= stock["target_price"]:
-                stock["status"] = "Target Hit!"
-                scrip_name = stock["scrip_name"]
-
-                # Initialize logging structure if needed
-                if sheet_name not in target_hit_logged:
-                    target_hit_logged[sheet_name] = {}
-                if scrip_name not in target_hit_logged[sheet_name]:
-                    target_hit_logged[sheet_name][scrip_name] = False
-
-                # Log target hit if not already logged
-                if not target_hit_logged[sheet_name][scrip_name]:
-                    try:
-                        log_target_hit(
-                            sheet_name,
-                            scrip_name,
-                            stock["target_price"],
-                            stock["current_price"],
-                        )
-                        target_hit_logged[sheet_name][scrip_name] = True
-                        print(f"🎯 Target hit logged: {scrip_name} at {stock['current_price']}")
-                    except Exception:
-                        print(f"Failed to log target hit for {scrip_name}")
-                        traceback.print_exc()
-            else:
-                stock["status"] = "Below Target"
-                
-            print(f"✅ {stock['scrip_name']}: ₹{stock['current_price']} ({stock['status']})")
-        else:
-            stock["current_price"] = 0.0
-            stock["status"] = "No Data"
-            print(f"❌ No data for {stock['scrip_name']}")
-
-    except Exception as e:
-        print(f"❌ Error fetching {stock.get('scrip_name')}: {e}")
-        stock["current_price"] = 0.0
-        stock["status"] = "Error"
-
-    return stock
-
-
-def process_stock_batch(batch: List[Dict], sheet_name: str) -> List[Dict]:
-    """Process a batch of stocks using ThreadPoolExecutor with enhanced timeout protection."""
-    updated_stocks = []
-    
-    print(f"🔄 Processing batch of {len(batch)} stocks for {sheet_name}")
-    
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # Submit all stocks in the batch
-        future_to_stock = {
-            executor.submit(fetch_single_stock_price, stock.copy(), sheet_name): stock 
-            for stock in batch
-        }
-        
-        # Collect results as they complete with individual timeouts
-        for future in as_completed(future_to_stock, timeout=60):  # 60 second batch timeout
-            try:
-                updated_stock = future.result(timeout=20)  # 20 second individual timeout
-                updated_stocks.append(updated_stock)
-            except Exception as e:
-                original_stock = future_to_stock[future]
-                scrip_name = original_stock.get('scrip_name', 'Unknown')
-                print(f"❌ Batch processing error for {scrip_name}: {e}")
-                
-                # Add the original stock with appropriate error status
-                original_stock = original_stock.copy()
-                original_stock["current_price"] = 0.0
-                
-                # Set specific error status based on the exception
-                if "timeout" in str(e).lower():
-                    original_stock["status"] = "Timeout"
-                elif "delisted" in str(e).lower():
-                    original_stock["status"] = "Delisted"
-                else:
-                    original_stock["status"] = "Error"
-                    
-                updated_stocks.append(original_stock)
-    
-    print(f"✅ Batch completed: {len(updated_stocks)} stocks processed")
-    return updated_stocks
-
-
-def fetch_stock_prices(sheet_name=None):
-    """Fetch current stock prices using yfinance with batch processing."""
-    global watchlists
+    global watchlists, target_hit_logged
 
     sheets_to_update = [sheet_name] if sheet_name else list(watchlists.keys())
-    print(f"📊 Starting price fetch for sheets: {sheets_to_update}")
 
     for current_sheet in sheets_to_update:
         if current_sheet not in watchlists:
-            print(f"⚠️ Sheet {current_sheet} not found in watchlists")
             continue
-        
+
         stocks = watchlists[current_sheet]
-        total_stocks = len(stocks)
-        
-        if total_stocks == 0:
-            print(f"📝 No stocks found in {current_sheet}")
-            continue
-        
-        print(f"🔄 Processing {total_stocks} stocks in {current_sheet}")
-        
-        # Process stocks in batches
-        updated_stocks = []
-        
-        for i in range(0, total_stocks, BATCH_SIZE):
-            batch_num = (i // BATCH_SIZE) + 1
-            total_batches = (total_stocks + BATCH_SIZE - 1) // BATCH_SIZE
-            
-            batch = stocks[i:i + BATCH_SIZE]
-            batch_size = len(batch)
-            
-            print(f"📦 Processing batch {batch_num}/{total_batches} ({batch_size} stocks) for {current_sheet}")
-            
-            # Process the batch
-            batch_results = process_stock_batch(batch, current_sheet)
-            updated_stocks.extend(batch_results)
-            
-            # Add delay between batches (except for the last batch)
-            if i + BATCH_SIZE < total_stocks:
-                print(f"⏳ Waiting {BATCH_DELAY} seconds before next batch...")
-                time.sleep(BATCH_DELAY)
-        
-        # Update the global watchlists with processed results
-        watchlists[current_sheet] = updated_stocks
-        
-        # Print summary
-        target_hits = sum(1 for stock in updated_stocks if stock["status"] == "Target Hit!")
-        errors = sum(1 for stock in updated_stocks if stock["status"] == "Error")
-        print(f"✅ Completed {current_sheet}: {target_hits} targets hit, {errors} errors")
+
+        # Restrict to subset if batching
+        if scrips is not None:
+            scrip_names = {s["scrip_name"] for s in scrips}
+            stocks = [s for s in stocks if s["scrip_name"] in scrip_names]
+
+        for stock in stocks:
+            try:
+                ticker = yf.Ticker(stock["yf_symbol"])
+                hist = ticker.history(period="2d", interval="15m")
+
+                if not hist.empty:
+                    if len(hist) >= 2:
+                        current_price = hist["Close"].iloc[-2]
+                    else:
+                        current_price = hist["Close"].iloc[-1]
+
+                    stock["current_price"] = round(float(current_price), 2)
+
+                    if stock["current_price"] >= stock["target_price"]:
+                        stock["status"] = "Target Hit!"
+                        scrip_name = stock["scrip_name"]
+
+                        if current_sheet not in target_hit_logged:
+                            target_hit_logged[current_sheet] = {}
+                        if scrip_name not in target_hit_logged[current_sheet]:
+                            target_hit_logged[current_sheet][scrip_name] = False
+
+                        if not target_hit_logged[current_sheet][scrip_name]:
+                            try:
+                                log_target_hit(
+                                    current_sheet,
+                                    scrip_name,
+                                    stock["target_price"],
+                                    stock["current_price"],
+                                )
+                                target_hit_logged[current_sheet][scrip_name] = True
+                            except Exception:
+                                print("Failed to log target hit for", scrip_name)
+                                traceback.print_exc()
+                    else:
+                        stock["status"] = "Below Target"
+                else:
+                    stock["current_price"] = 0.0
+                    stock["status"] = "No Data"
+
+            except Exception as e:
+                print(f"Error fetching {stock.get('scrip_name')}: {e}")
+                traceback.print_exc()
+                stock["current_price"] = 0.0
+                stock["status"] = "Error"
 
     return watchlists
 
@@ -293,150 +217,83 @@ def home(request):
 def get_watchlists(request):
     """Return the in-memory watchlists. Fetch sheet first if empty."""
     global watchlists
-    print(f"📋 get_watchlists called. Current watchlists: {list(watchlists.keys())}")
-    
     if not watchlists:
-        print("📥 Watchlists empty, fetching from sheet...")
         fetch_sheet()
-    
-    # Count total stocks
-    total_stocks = sum(len(stocks) for stocks in watchlists.values())
-    print(f"📊 Returning {len(watchlists)} watchlists with {total_stocks} total stocks")
-    
-    return JsonResponse({
-        "watchlists": watchlists,
-        "total_watchlists": len(watchlists),
-        "total_stocks": total_stocks
-    })
+    return JsonResponse({"watchlists": watchlists})
 
 
 @csrf_exempt
 def refresh_sheet(request):
     """Refresh watchlists from Google Sheets tabs"""
     global watchlists
-    print("🔄 refresh_sheet called")
-    
     watchlists.clear()
-    target_hit_logged.clear()
-    
-    try:
-        fetch_sheet()
-        total_stocks = sum(len(stocks) for stocks in watchlists.values())
-        
-        print(f"✅ Sheet refresh completed: {len(watchlists)} tabs, {total_stocks} stocks")
-        
-        return JsonResponse({
-            "status": "ok", 
-            "watchlists": watchlists,
-            "total_watchlists": len(watchlists),
-            "total_stocks": total_stocks
-        })
-        
-    except Exception as e:
-        print(f"❌ Error in refresh_sheet: {e}")
-        traceback.print_exc()
-        return HttpResponseBadRequest(f"Failed to refresh sheet: {str(e)}")
+
+    for tab_name, gid in SHEET_TABS.items():
+        try:
+            url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={gid}"
+            df = pd.read_csv(url)
+            df.columns = [c.strip() for c in df.columns]
+
+            if "Scrip Name" not in df.columns or "Target Price" not in df.columns:
+                print(f"⚠️ {tab_name} missing required columns")
+                continue
+
+            watchlists[tab_name] = [
+                {
+                    "scrip_name": row["Scrip Name"],
+                    "target_price": float(row["Target Price"]),
+                    "yf_symbol": str(row["Scrip Name"]) + ".NS",
+                    "current_price": None,
+                    "status": "Not Checked",
+                }
+                for _, row in df.iterrows()
+            ]
+        except Exception as e:
+            print(f"❌ Error loading {tab_name}: {e}")
+
+    return JsonResponse({"status": "ok", "watchlists": watchlists})
 
 
 @csrf_exempt
 def refresh_all_prices(request):
     """Fetch prices for all sheets and return updated watchlists."""
+    print("refreshing all prices started")
     try:
-        print("🚀 refresh_all_prices called")
-        start_time = time.time()
-        
-        # Ensure we have watchlists loaded
-        if not watchlists:
-            print("📥 No watchlists found, loading from sheet first...")
-            fetch_sheet()
-        
-        total_stocks = sum(len(stocks) for stocks in watchlists.values())
-        print(f"📊 Total stocks to process: {total_stocks}")
-        
         updated = fetch_stock_prices()
-        
-        end_time = time.time()
-        processing_time = round(end_time - start_time, 2)
-        print(f"✅ refresh_all_prices completed in {processing_time} seconds")
-        
-        return JsonResponse({
-            "watchlists": updated,
-            "processing_time": processing_time,
-            "total_stocks": total_stocks,
-            "batch_size": BATCH_SIZE
-        })
-        
+        return JsonResponse({"watchlists": updated})
     except Exception as e:
-        print(f"❌ refresh_all_prices error: {e}")
+        print("refresh_all_prices error:", e)
         traceback.print_exc()
         return HttpResponseBadRequest(str(e))
 
 
 @csrf_exempt
 def refresh_tab_prices(request, tab_name):
-    """Fetch prices for a single tab/watchlist and return ONLY that tab's data."""
+    """Fetch prices for a single tab/watchlist and return ONLY that tab's data in batches if >100 scrips."""
     global watchlists
-    
+    print(f"refreshing started for {tab_name}")
+
     try:
-        print(f"🚀 refresh_tab_prices called for {tab_name}")
-        start_time = time.time()
-        
-        # Ensure we have watchlists loaded
-        if not watchlists:
-            print("📥 No watchlists found, loading from sheet first...")
-            fetch_sheet()
-        
-        # Check if the tab exists
-        if tab_name not in watchlists:
-            available_tabs = list(watchlists.keys())
-            error_msg = f"Tab '{tab_name}' not found. Available tabs: {available_tabs}"
-            print(f"❌ {error_msg}")
-            return HttpResponseBadRequest(error_msg)
-        
-        # Get stocks for this tab
-        tab_stocks = watchlists[tab_name]
-        stock_count = len(tab_stocks)
-        
-        print(f"📊 Processing {stock_count} stocks for {tab_name}")
-        
-        if stock_count == 0:
-            print(f"⚠️ No stocks found in {tab_name}")
-            return JsonResponse({
-                "tab_name": tab_name,
-                "data": [],
-                "total_stocks": 0,
-                "processing_time": 0,
-                "message": "No stocks found in this watchlist"
-            })
-        
-        # Process the tab
-        fetch_stock_prices(sheet_name=tab_name)
-        
-        # Get updated data
-        updated_tab_data = watchlists.get(tab_name, [])
-        
-        end_time = time.time()
-        processing_time = round(end_time - start_time, 2)
-        
-        # Count results
-        target_hits = sum(1 for stock in updated_tab_data if stock["status"] == "Target Hit!")
-        errors = sum(1 for stock in updated_tab_data if stock["status"] == "Error")
-        
-        print(f"✅ refresh_tab_prices for {tab_name} completed: {target_hits} hits, {errors} errors, {processing_time}s")
-        
+        all_scrips = watchlists.get(tab_name, [])
+
+        if not all_scrips:
+            fetch_stock_prices(sheet_name=tab_name)
+            all_scrips = watchlists.get(tab_name, [])
+
+        BATCH_SIZE = 100
+        batched_results = []
+        for i in range(0, len(all_scrips), BATCH_SIZE):
+            batch = all_scrips[i:i + BATCH_SIZE]
+            fetch_stock_prices(sheet_name=tab_name, scrips=batch)
+            batched_results.extend(watchlists.get(tab_name, [])[i:i + BATCH_SIZE])
+
         return JsonResponse({
             "tab_name": tab_name,
-            "data": updated_tab_data,
-            "total_stocks": len(updated_tab_data),
-            "processing_time": processing_time,
-            "batch_size": BATCH_SIZE,
-            "target_hits": target_hits,
-            "errors": errors
+            "count": len(all_scrips),
+            "data": batched_results
         })
-        
+
     except Exception as e:
-        print(f"❌ refresh_tab_prices error for {tab_name}: {e}")
+        print("refresh_tab_prices error:", e)
         traceback.print_exc()
-        return HttpResponseBadRequest(f"Error processing {tab_name}: {str(e)}")
-
-
+        return HttpResponseBadRequest(str(e))
