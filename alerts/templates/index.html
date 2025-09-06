@@ -1,48 +1,52 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Stock Alert Monitor</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  
+
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 
   <style>
-    /* Custom styles for tabs to replace Bulma tabs */
-    .custom-tabs-container ul {
-      display: flex;
-      list-style: none;
-      margin: 0 0 20px 0;
-      padding: 0;
-      border-bottom: 2px solid #dbdbdb;
+    /* New styles for button-based tabs, inspired by your example */
+    .tab-container {
+      overflow: hidden;
+      border: 1px solid #dbdbdb;
+      background-color: #f5f5f5;
+      margin-bottom: 20px;
     }
 
-    .custom-tabs-container li a {
-      display: inline-block;
-      padding: 10px 20px;
+    .tab-container .tablink {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
       cursor: pointer;
-      border-bottom: 3px solid transparent;
-      margin-bottom: -2px;
-      color: #363636;
-      text-decoration: none;
+      padding: 14px 16px;
+      transition: background-color 0.3s;
+      font-size: 16px;
     }
 
-    .custom-tabs-container li.is-active a {
-      border-bottom-color: #3273dc;
+    .tab-container .tablink:hover {
+      background-color: #e6e6e6;
+    }
+
+    /* Style for the active tab button */
+    .tab-container .tablink.active {
+      background-color: #fff;
+      border-bottom: 2px solid #3273dc;
+      font-weight: 600;
       color: #3273dc;
-      font-weight: bold;
-    }
-
-    .custom-tabs-container li a:hover {
-      border-bottom-color: #363636;
-      color: #363636;
     }
 
     /* Style for rows where the target is hit (used by DataTables) */
     tr.target-hit {
-      background-color: #d4edda !important; /* Use !important to override DataTables default styling */
+      background-color: #d4edda !important;
+      /* !important to override DataTables styling */
     }
   </style>
 </head>
+
 <body class="section">
   <div class="container">
     <h1 class="title">📈 Stock Alert Monitor</h1>
@@ -53,9 +57,7 @@
       <button id="btn-refresh-tab" class="button is-warning">Refresh Current Watchlist</button>
     </div>
 
-    <div id="tabs" class="custom-tabs-container">
-      <ul id="tab-list"></ul>
-    </div>
+    <div id="tab-buttons" class="tab-container"></div>
 
     <div id="table-container"></div>
   </div>
@@ -68,57 +70,73 @@
     let currentTab = null;
     let stockDataTable = null; // Variable to hold the DataTable instance
 
-    // --- Core Functions ---
+    // --- Tab and Table Rendering ---
 
-    async function fetchWatchlists() {
-      try {
-        const res = await fetch("/api/watchlists/");
-        const data = await res.json();
-        watchlists = data.watchlists;
-        renderTabs();
-      } catch (error) {
-        console.error("Failed to fetch watchlists:", error);
-      }
+    /**
+     * Handles the logic for switching tabs, updating styles, and re-rendering the table.
+     */
+    function switchTab(tabName, clickedButton) {
+      // 1. Update the global variable for the current tab
+      currentTab = tabName;
+
+      // 2. Update the 'active' class on all tab buttons
+      const tablinks = document.querySelectorAll("#tab-buttons .tablink");
+      tablinks.forEach(btn => btn.classList.remove('active'));
+      clickedButton.classList.add('active');
+
+      // 3. Render the table with data from the newly selected tab
+      renderTable();
     }
 
+    /**
+     * Creates and populates the tab buttons based on the available watchlists.
+     */
     function renderTabs() {
-      const tabList = document.getElementById("tab-list");
-      tabList.innerHTML = "";
+      const tabContainer = document.getElementById("tab-buttons");
+      tabContainer.innerHTML = ""; // Clear existing tabs
 
-      // Set the first tab as the current tab if none is selected
-      if (!currentTab && Object.keys(watchlists).length) {
-        currentTab = Object.keys(watchlists)[0];
+      // If currentTab is invalid or not set, default to the first available watchlist
+      if (!currentTab || !watchlists[currentTab]) {
+        currentTab = Object.keys(watchlists)[0] || null;
       }
 
+      let activeTabButton = null;
+
+      // Create a button for each watchlist
       for (const tabName in watchlists) {
-        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.className = "tablink";
+        button.innerText = tabName;
+        // Assign the switchTab function to the button's click event
+        button.onclick = () => switchTab(tabName, button);
+        tabContainer.appendChild(button);
+
         if (tabName === currentTab) {
-          li.classList.add("is-active");
+          activeTabButton = button;
         }
-        li.innerHTML = `<a>${tabName}</a>`;
-        li.onclick = () => {
-          currentTab = tabName;
-          // Visually update active tab and re-render the table
-          document.querySelectorAll("#tab-list li").forEach(item => item.classList.remove("is-active"));
-          li.classList.add("is-active");
-          renderTable();
-        };
-        tabList.appendChild(li);
       }
-      renderTable(); // Initial table render for the active tab
+
+      // Programmatically "click" the first/active tab to set the initial state
+      if (activeTabButton) {
+        activeTabButton.click();
+      } else {
+        // Handle case where there are no watchlists
+        renderTable(); // This will show an empty table
+      }
     }
 
+    /**
+     * Renders the stock data table using the DataTables library.
+     */
     function renderTable() {
-      if (!currentTab) return;
+      const tableData = (currentTab && watchlists[currentTab]) ? watchlists[currentTab] : [];
 
-      const tableData = watchlists[currentTab] || [];
-
-      // If a DataTable instance already exists, destroy it before creating a new one
+      // If a DataTable instance already exists, destroy it before re-creating it
       if (stockDataTable) {
         stockDataTable.destroy();
       }
 
-      // Clear previous table and add the basic table structure for DataTables
+      // Add the basic table structure for DataTables
       const container = document.getElementById("table-container");
       container.innerHTML = `<table id="stock-table" class="table is-striped is-fullwidth"></table>`;
 
@@ -131,21 +149,30 @@
           { data: 'current_price', title: 'Current' },
           { data: 'status', title: 'Status' }
         ],
-        // Use the createdRow callback to apply conditional styling
-        createdRow: function(row, data, dataIndex) {
+        createdRow: function (row, data, dataIndex) {
           if (data.status === "Target Hit!") {
             $(row).addClass('target-hit');
           }
         },
-        // Optional: customize DataTables features
-        paging: false,    // Disable pagination
-        searching: true,  // Enable search box
-        info: false,      // Disable "Showing x of y entries" text
-        responsive: true // Enable responsive design
+        paging: false,
+        searching: true,
+        info: false,
+        responsive: true
       });
     }
 
-    // --- Event Listeners for Buttons ---
+    // --- Data Fetching and Event Listeners ---
+
+    async function fetchWatchlists() {
+      try {
+        const res = await fetch("/api/watchlists/");
+        const data = await res.json();
+        watchlists = data.watchlists;
+        renderTabs();
+      } catch (error) {
+        console.error("Failed to fetch watchlists:", error);
+      }
+    }
 
     document.getElementById("btn-refresh-sheet").onclick = async () => {
       console.log("Refreshing sheet...");
@@ -161,16 +188,22 @@
       renderTable(); // Just re-render the current table with new data
     };
 
+    // AFTER
     document.getElementById("btn-refresh-tab").onclick = async () => {
       if (!currentTab) return;
       console.log(`Refreshing tab: ${currentTab}`);
-      const res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
-      watchlists = (await res.json()).watchlists;
-      renderTable(); // Just re-render the current table
+      let res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
+
+      // New logic: Only update the data for the specific tab
+      let responseData = await res.json();
+      watchlists[responseData.tab_name] = responseData.data;
+
+      renderTable(); // Re-render the table with the fresh data
     };
 
     // --- Initial Load ---
     fetchWatchlists();
   </script>
 </body>
+
 </html>
