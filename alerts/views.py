@@ -24,7 +24,7 @@ SHEET_TABS = {
     "Intraday": "0",        # usually first tab has gid=0
     "SwingRiskyBuy": "1087261693",
     "FIBOST": "1298523822",
-    "FIBOMT": "1261523394",
+    "FIBOMT": "1012659671",
     "FIBOLT": "774037465",
 }
 
@@ -292,3 +292,4 @@ def refresh_tab_prices(request, tab_name):
         print("refresh_tab_prices error:", e)
         traceback.print_exc()
         return HttpResponseBadRequest(str(e))
+
