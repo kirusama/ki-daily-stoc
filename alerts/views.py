@@ -103,60 +103,29 @@ def log_target_hit(sheet_name, scrip_name, target_price, hit_price):
 
 
 # ----------------- Sheet reading -----------------
-def fetch_sheet():
-    """Fetch all tabs into watchlists."""
-    global watchlists, target_hit_logged
-    if not SHEET_TABS:
-        discover_sheet_tabs()
+def fetch_sheet(tab):
+    """
+    Fetch a specific tab from Google Sheets into a pandas DataFrame.
+    """
+    try:
+        url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={SHEET_TABS[tab]}"
+        print(f"📊 Fetching sheet data for {tab} from: {url}")
 
-    new_watchlists = {}
-    for tab in SHEET_TABS:
-        try:
-            url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={SHEET_TABS[tab]}"
-            print(f"📊 Fetching sheet data for {tab} from: {url}")
-            
-            df = pd.read_csv(StringIO(resp.text))
-            df.columns = [c.strip() for c in df.columns]
+        # Fetch with requests (timeout added here)
+        import requests
+        from io import StringIO
 
-            print(f"📋 Columns in {tab}: {list(df.columns)}")
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()  # Throw error if download fails
 
-            rows = []
-            for _, r in df.iterrows():
-                scrip = str(r.get("Scrip Name", "")).strip()
-                if not scrip or scrip == 'nan':
-                    continue
-                    
-                try:
-                    tp = float(r.get("Target Price", ""))
-                    if tp <= 0:
-                        continue
-                except (ValueError, TypeError):
-                    continue
+        # Now read into pandas
+        df = pd.read_csv(StringIO(resp.text))
+        df.columns = [c.strip() for c in df.columns]  # Clean headers
+        return df
 
-                yf_sym = scrip if "." in scrip else scrip + ".NS"
-                rows.append({
-                    "scrip_name": scrip,
-                    "target_price": tp,
-                    "yf_symbol": yf_sym,
-                    "current_price": 0.0,
-                    "status": "Not Fetched",
-                })
-
-            new_watchlists[tab] = rows
-            print(f"✅ Loaded {len(rows)} stocks for {tab}")
-            
-            if tab not in target_hit_logged:
-                target_hit_logged[tab] = {r["scrip_name"]: False for r in rows}
-
-        except Exception as e:
-            print(f"⚠️ Error reading {tab}: {e}")
-            traceback.print_exc()
-            new_watchlists[tab] = []
-
-    watchlists = new_watchlists
-    print(f"🎯 Total watchlists loaded: {list(watchlists.keys())}")
-    return watchlists
-
+    except Exception as e:
+        print(f"⚠️ Error reading {tab}: {e}")
+        return pd.DataFrame()
 
 # ----------------- Core fetching logic with improved error handling -----------------
 def fetch_single_stock_price(stock: Dict, sheet_name: str) -> Dict:
@@ -469,4 +438,5 @@ def refresh_tab_prices(request, tab_name):
         print(f"❌ refresh_tab_prices error for {tab_name}: {e}")
         traceback.print_exc()
         return HttpResponseBadRequest(f"Error processing {tab_name}: {str(e)}")
+
 
