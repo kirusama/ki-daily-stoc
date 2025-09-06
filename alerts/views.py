@@ -16,9 +16,10 @@ from django.views.decorators.csrf import csrf_exempt
 GOOGLE_SHEET_ID = "1qPeDQOzgiCrfp1h32KUyn5CHD509yR8E_ggxfjFtJOc"  # <-- your public Google Sheet ID
 CSV_SHEET_BASE_URL = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet="
 
-# In-memory store (simple prototype)
+# In-memory store
 watchlists = {}
 target_hit_logged = {}
+
 # Map of sheet tab name → gid
 SHEET_TABS = {
     "Intraday": "0",        # usually first tab has gid=0
@@ -28,12 +29,10 @@ SHEET_TABS = {
     "FIBOLT": "774037465",
 }
 
-
-# Log file path (relative to project base dir if available)
+# Log file path
 BASE_DIR = getattr(settings, "BASE_DIR", os.getcwd())
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "target_hits.csv")
-
 os.makedirs(LOG_DIR, exist_ok=True)
 
 
@@ -41,10 +40,10 @@ os.makedirs(LOG_DIR, exist_ok=True)
 def normalize_symbol(scrip_name: str) -> str:
     """Return a yfinance-friendly symbol. If user didn't include exchange suffix, add .NS"""
     s = scrip_name.strip()
-    # If contains a dot (e.g., 'RELIANCE.NS' or 'TCS.BO'), assume user provided exchange
     if "." in s:
         return s
     return s + ".NS"
+
 
 def discover_sheet_tabs():
     """Discover all tab names in the Google Sheet by parsing the gviz response."""
@@ -53,27 +52,13 @@ def discover_sheet_tabs():
     try:
         resp = requests.get(url, timeout=10)
         text = resp.text
-
-        # Remove JS wrapper: google.visualization.Query.setResponse(<json>);
         m = re.search(r"setResponse\((.*)\);", text, re.S)
         if not m:
             print("❌ Could not parse gviz response")
             return []
 
         data = json.loads(m.group(1))
-        sheets = data.get("table", {}).get("cols", [])
-
-        # Extract available sheet names from the response metadata
-        # (this varies by Google Sheets, sometimes in "table.cols", sometimes in "reqId"...)
-        tab_names = []
-        if "reqId" in data:  # sanity check
-            for entry in data.get("table", {}).get("cols", []):
-                if "label" in entry and entry["label"]:
-                    tab_names.append(entry["label"])
-
-        # If still empty, try plan B: look in the whole JSON for "name" keys
-        if not tab_names:
-            tab_names = re.findall(r'"name":"(.*?)"', json.dumps(data))
+        tab_names = re.findall(r'"name":"(.*?)"', json.dumps(data))
 
         SHEET_TABS = sorted(set(tab_names))
         print("✅ Discovered sheet tabs:", SHEET_TABS)
@@ -82,7 +67,6 @@ def discover_sheet_tabs():
     except Exception as e:
         print("❌ Could not discover sheet tabs:", e)
         return []
-
 
 
 def log_target_hit(sheet_name, scrip_name, target_price, hit_price):
@@ -153,41 +137,49 @@ def fetch_sheet():
     return watchlists
 
 
-# ----------------- Core fetching logic (adapted from your reference) -----------------
-def fetch_stock_prices(sheet_name=None):
+# ----------------- Core fetching logic -----------------
+def fetch_stock_prices(sheet_name=None, scrips=None):
     """
     Fetch current stock prices using yfinance.
-    This is synchronous (suitable for web request).
+    Optionally restrict to a subset of scrips.
     """
     global watchlists, target_hit_logged
 
     sheets_to_update = [sheet_name] if sheet_name else list(watchlists.keys())
 
-    # The existing logic to fetch prices and update watchlists goes here.
-    # ... (your code to update the global 'watchlists' dictionary) ...
     for current_sheet in sheets_to_update:
         if current_sheet not in watchlists:
             continue
-        # iterate stocks in this sheet
-        for stock in watchlists[current_sheet]:
+
+        stocks = watchlists[current_sheet]
+
+        # Restrict to subset if batching
+        if scrips is not None:
+            scrip_names = {s["scrip_name"] for s in scrips}
+            stocks = [s for s in stocks if s["scrip_name"] in scrip_names]
+
+        for stock in stocks:
             try:
                 ticker = yf.Ticker(stock["yf_symbol"])
                 hist = ticker.history(period="2d", interval="15m")
+
                 if not hist.empty:
-                    # choose the most recent completed candle (second last)
                     if len(hist) >= 2:
                         current_price = hist["Close"].iloc[-2]
                     else:
                         current_price = hist["Close"].iloc[-1]
+
                     stock["current_price"] = round(float(current_price), 2)
-                    # Update status based on price comparison
+
                     if stock["current_price"] >= stock["target_price"]:
                         stock["status"] = "Target Hit!"
                         scrip_name = stock["scrip_name"]
+
                         if current_sheet not in target_hit_logged:
                             target_hit_logged[current_sheet] = {}
                         if scrip_name not in target_hit_logged[current_sheet]:
                             target_hit_logged[current_sheet][scrip_name] = False
+
                         if not target_hit_logged[current_sheet][scrip_name]:
                             try:
                                 log_target_hit(
@@ -205,17 +197,19 @@ def fetch_stock_prices(sheet_name=None):
                 else:
                     stock["current_price"] = 0.0
                     stock["status"] = "No Data"
+
             except Exception as e:
                 print(f"Error fetching {stock.get('scrip_name')}: {e}")
                 traceback.print_exc()
                 stock["current_price"] = 0.0
                 stock["status"] = "Error"
-    # This return statement is outside of the loops
+
     return watchlists
+
 
 # ----------------- Views / API endpoints -----------------
 def home(request):
-    """Serve the SPA index page (make sure index.html exists in templates/)"""
+    """Serve the SPA index page"""
     return render(request, "index.html")
 
 
@@ -237,8 +231,6 @@ def refresh_sheet(request):
         try:
             url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv&gid={gid}"
             df = pd.read_csv(url)
-
-            # Normalize column names
             df.columns = [c.strip() for c in df.columns]
 
             if "Scrip Name" not in df.columns or "Target Price" not in df.columns:
@@ -265,7 +257,7 @@ def refresh_sheet(request):
 def refresh_all_prices(request):
     """Fetch prices for all sheets and return updated watchlists."""
     try:
-        updated = fetch_stock_prices()  # synchronous; will return after completion
+        updated = fetch_stock_prices()
         return JsonResponse({"watchlists": updated})
     except Exception as e:
         print("refresh_all_prices error:", e)
@@ -273,22 +265,32 @@ def refresh_all_prices(request):
         return HttpResponseBadRequest(str(e))
 
 
-# AFTER
 @csrf_exempt
 def refresh_tab_prices(request, tab_name):
-    """Fetch prices for a single tab/watchlist and return ONLY that tab's data."""
+    """Fetch prices for a single tab/watchlist and return ONLY that tab's data in batches if >100 scrips."""
     global watchlists
-    print("refreshing started")    
+    print(f"refreshing started for {tab_name}")
+
     try:
-        # This function still updates the global `watchlists` in the background
-        fetch_stock_prices(sheet_name=tab_name)
-        
-        # But we only return the data for the tab that was requested
-        updated_tab_data = watchlists.get(tab_name, [])
+        all_scrips = watchlists.get(tab_name, [])
+
+        if not all_scrips:
+            fetch_stock_prices(sheet_name=tab_name)
+            all_scrips = watchlists.get(tab_name, [])
+
+        BATCH_SIZE = 100
+        batched_results = []
+        for i in range(0, len(all_scrips), BATCH_SIZE):
+            batch = all_scrips[i:i + BATCH_SIZE]
+            fetch_stock_prices(sheet_name=tab_name, scrips=batch)
+            batched_results.extend(watchlists.get(tab_name, [])[i:i + BATCH_SIZE])
+
         return JsonResponse({
             "tab_name": tab_name,
-            "data": updated_tab_data
+            "count": len(all_scrips),
+            "data": batched_results
         })
+
     except Exception as e:
         print("refresh_tab_prices error:", e)
         traceback.print_exc()
