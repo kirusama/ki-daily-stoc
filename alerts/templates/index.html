@@ -1,65 +1,368 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stock Alert Monitor</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    /* New styles for button-based tabs, inspired by your example */
-    .tab-container {
-      overflow: hidden;
-      border: 1px solid #dbdbdb;
-      background-color: #f5f5f5;
-      margin-bottom: 20px;
+    :root {
+      --primary-color: #2962ff;
+      --primary-light: #e8f0fe;
+      --secondary-color: #0d47a1;
+      --success-color: #2e7d32;
+      --warning-color: #ed6c02;
+      --light-bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --border-color: #e0e0e0;
+      --text-primary: #212121;
+      --text-secondary: #757575;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --transition: all 0.3s ease;
     }
 
-    .tab-container .tablink {
-      background-color: inherit;
-      float: left;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background-color: var(--light-bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    .app-header {
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      color: white;
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+    }
+
+    .app-title {
+      font-size: 1.9rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .app-subtitle {
+      font-size: 1.05rem;
+      opacity: 0.9;
+    }
+
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .app-button {
+      border-radius: 8px;
+      font-weight: 500;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       border: none;
-      outline: none;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .app-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .tab-container {
+      overflow-x: auto;
+      white-space: nowrap;
+      display: flex;
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      padding: 0.75rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tablink {
+      background-color: transparent;
+      border: none;
+      padding: 0.85rem 1.5rem;
       cursor: pointer;
-      padding: 14px 16px;
-      transition: background-color 0.3s;
-      font-size: 16px;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: var(--transition);
+      color: var(--text-secondary);
+      margin: 0 3px;
     }
 
-    .tab-container .tablink:hover {
-      background-color: #e6e6e6;
+    .tablink:hover {
+      background-color: var(--primary-light);
+      color: var(--primary-color);
     }
 
-    /* Style for the active tab button */
-    .tab-container .tablink.active {
-      background-color: #fff;
-      border-bottom: 2px solid #3273dc;
+    .tablink.active {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .table-container {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      border: 1px solid var(--border-color);
+    }
+
+    #stock-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    #stock-table th {
+      background-color: #f5f7ff;
       font-weight: 600;
-      color: #3273dc;
+      padding: 1rem 0.85rem;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
     }
 
-    /* Style for rows where the target is hit (used by DataTables) */
-    tr.target-hit {
-      background-color: #d4edda !important;
-      /* !important to override DataTables styling */
+    #stock-table td {
+      padding: 0.85rem;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    #stock-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    #stock-table tr:hover td {
+      background-color: #f9fafc;
+    }
+
+    .status-badge {
+      padding: 0.4rem 0.85rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .status-hit {
+      background-color: #e8f5e9;
+      color: var(--success-color);
+    }
+
+    .status-below {
+      background-color: #e3f2fd;
+      color: var(--primary-color);
+    }
+
+    .status-error {
+      background-color: #ffebee;
+      color: #d32f2f;
+    }
+
+    .status-default {
+      background-color: #f5f5f5;
+      color: var(--text-secondary);
+    }
+
+    .price-up {
+      color: var(--success-color);
+      font-weight: 600;
+    }
+
+    .price-down {
+      color: #d32f2f;
+      font-weight: 600;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.92);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      flex-direction: column;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(41, 98, 255, 0.2);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .notification-card {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      padding: 2.5rem;
+      text-align: center;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .notification-icon {
+      font-size: 3.5rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Mobile optimizations */
+    @media screen and (max-width: 768px) {
+      .app-container {
+        padding: 1rem;
+      }
+
+      .app-header {
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .app-title {
+        font-size: 1.6rem;
+        justify-content: center;
+      }
+
+      .button-group {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .app-button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .tablink {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.9rem;
+      }
+
+      .table-container {
+        overflow-x: auto;
+        border-radius: 10px;
+      }
+
+      #stock-table {
+        min-width: 650px;
+      }
+
+      #stock-table th,
+      #stock-table td {
+        padding: 0.75rem;
+      }
+    }
+
+    @media screen and (max-width: 480px) {
+      .app-container {
+        padding: 0.75rem;
+      }
+
+      .app-header {
+        padding: 1.25rem;
+      }
+
+      .app-title {
+        font-size: 1.4rem;
+      }
+
+      .app-subtitle {
+        font-size: 0.95rem;
+      }
+
+      .tablink {
+        padding: 0.6rem 1rem;
+        font-size: 0.85rem;
+      }
+      
+      .notification-card {
+        padding: 1.5rem;
+      }
+      
+      .notification-icon {
+        font-size: 2.5rem;
+      }
+    }
+
+    #stock-table_filter {
+      padding: 1rem;
     }
   </style>
 </head>
 
-<body class="section">
-  <div class="container">
-    <h1 class="title">📈 Stock Alert Monitor</h1>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1 class="app-title"><i class="fas fa-chart-line"></i> Stock Alert Monitor</h1>
+      <p class="app-subtitle">Track your stock targets and get notified when they're hit</p>
+    </header>
 
-    <div class="buttons">
-      <button id="btn-refresh-sheet" class="button is-link">Refresh Sheet</button>
-      <button id="btn-refresh-all" class="button is-success">Manual Fetch Prices</button>
-      <button id="btn-refresh-tab" class="button is-warning">Refresh Current Watchlist</button>
+    <div class="button-group">
+      <button id="btn-refresh-sheet" class="button is-link app-button">
+        <i class="fas fa-sync-alt"></i> Refresh Sheet
+      </button>
+      <button id="btn-refresh-all" class="button is-success app-button">
+        <i class="fas fa-download"></i> Fetch All Prices
+      </button>
+      <button id="btn-refresh-tab" class="button is-warning app-button">
+        <i class="fas fa-redo"></i> Refresh Current Watchlist
+      </button>
     </div>
 
     <div id="tab-buttons" class="tab-container"></div>
 
-    <div id="table-container"></div>
+    <div id="table-container" class="table-container"></div>
+  </div>
+
+  <div id="loading" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p class="mt-3 has-text-weight-semibold">Processing your request...</p>
   </div>
 
   <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
@@ -68,53 +371,49 @@
   <script>
     let watchlists = {};
     let currentTab = null;
-    let stockDataTable = null; // Variable to hold the DataTable instance
+    let stockDataTable = null;
 
-    // --- Tab and Table Rendering ---
+    // Show loading overlay
+    function showLoading() {
+      document.getElementById('loading').style.display = 'flex';
+    }
 
-    /**
-     * Handles the logic for switching tabs, updating styles, and re-rendering the table.
-     */
+    // Hide loading overlay
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    // Switch tab function
     function switchTab(tabName, clickedButton) {
-      // 1. Update the global variable for the current tab
       currentTab = tabName;
 
-      // 2. Update the 'active' class on all tab buttons
       const tablinks = document.querySelectorAll("#tab-buttons .tablink");
       tablinks.forEach(btn => btn.classList.remove('active'));
       clickedButton.classList.add('active');
 
-      // 3. Render the table with data from the newly selected tab
       renderTable();
     }
 
-    /**
-     * Creates and populates the tab buttons based on the available watchlists.
-     */
+    // Render tabs
     function renderTabs() {
       const tabContainer = document.getElementById("tab-buttons");
-      tabContainer.innerHTML = ""; // Clear existing tabs
+      tabContainer.innerHTML = "";
 
-      // Check if watchlists exist
       if (Object.keys(watchlists).length === 0) {
-        // No watchlists available, show message in table
         renderTable();
         return;
       }
 
-      // If currentTab is invalid or not set, default to the first available watchlist
       if (!currentTab || !watchlists[currentTab]) {
         currentTab = Object.keys(watchlists)[0] || null;
       }
 
       let activeTabButton = null;
 
-      // Create a button for each watchlist
       for (const tabName in watchlists) {
         const button = document.createElement("button");
         button.className = "tablink";
         button.innerText = tabName;
-        // Assign the switchTab function to the button's click event
         button.onclick = () => switchTab(tabName, button);
         tabContainer.appendChild(button);
 
@@ -123,18 +422,14 @@
         }
       }
 
-      // Programmatically "click" the first/active tab to set the initial state
       if (activeTabButton) {
         activeTabButton.click();
       } else {
-        // Handle case where there are no watchlists
-        renderTable(); // This will show an empty table
+        renderTable();
       }
     }
 
-    /**
-     * Custom sorting function for status column to prioritize "Target Hit!" first
-     */
+    // Status sort order
     function statusSortOrder(status) {
       const order = {
         "Target Hit!": 1,
@@ -144,41 +439,57 @@
         "No Data": 5,
         "Error": 6
       };
-      return order[status] || 99; // Unknown statuses go to the end
+      return order[status] || 99;
     }
 
-    /**
-     * Renders the stock data table using the DataTables library.
-     */
+    // Get status badge class
+    function getStatusClass(status) {
+      switch(status) {
+        case "Target Hit!":
+          return "status-hit";
+        case "Below Target":
+          return "status-below";
+        case "Error":
+        case "No Data":
+          return "status-error";
+        default:
+          return "status-default";
+      }
+    }
+
+    // Render table
     function renderTable() {
       const tableData = (currentTab && watchlists[currentTab]) ? watchlists[currentTab] : [];
 
-      // If a DataTable instance already exists, destroy it before re-creating it
       if (stockDataTable) {
         stockDataTable.destroy();
       }
 
       const container = document.getElementById("table-container");
 
-      // Check if there are no watchlists at all
       if (Object.keys(watchlists).length === 0) {
         container.innerHTML = `
-          <div class="notification is-info has-text-centered">
-            <p><strong>No watchlists found!</strong></p>
-            <p>Please click the "Refresh Watchlist" button to load your data.</p>
+          <div class="notification-card">
+            <div class="notification-icon">
+              <i class="fas fa-folder-open"></i>
+            </div>
+            <h3 class="title is-4">No watchlists found</h3>
+            <p class="subtitle is-6">Click the "Refresh Sheet" button to load your data</p>
           </div>
         `;
         return;
       }
 
-      // Add the basic table structure for DataTables
-      container.innerHTML = `<table id="stock-table" class="table is-striped is-fullwidth"></table>`;
+      container.innerHTML = `<table id="stock-table" class="display" style="width:100%"></table>`;
 
-      // Initialize DataTables with custom sorting for status
       stockDataTable = $('#stock-table').DataTable({
         data: tableData,
         columns: [
-          { data: 'scrip_name', title: 'Scrip' },
+          { 
+            data: 'scrip_name', 
+            title: 'Scrip',
+            className: 'has-text-weight-semibold'
+          },
           {
             data: 'target_price',
             title: 'Target',
@@ -194,7 +505,10 @@
             title: 'Current',
             render: function (data, type, row) {
               if (type === 'display' && data && data > 0) {
-                return '₹' + parseFloat(data).toFixed(2);
+                const target = parseFloat(row.target_price);
+                const current = parseFloat(data);
+                const priceClass = current >= target ? 'price-up' : 'price-down';
+                return `<span class="${priceClass}">₹${current.toFixed(2)}</span>`;
               }
               return data || '-';
             }
@@ -204,46 +518,24 @@
             title: 'Status',
             render: function (data, type, row) {
               if (type === 'display') {
-                // Add different styling based on status
-                let statusClass = '';
-                if (data === 'Target Hit!') {
-                  statusClass = 'has-text-success has-text-weight-bold';
-                } else if (data === 'Below Target') {
-                  statusClass = 'has-text-info';
-                } else if (data === 'Error' || data === 'No Data') {
-                  statusClass = 'has-text-danger';
-                } else {
-                  statusClass = 'has-text-grey';
-                }
-                return `<span class="${statusClass}">${data}</span>`;
+                const statusClass = getStatusClass(data);
+                return `<span class="status-badge ${statusClass}">${data}</span>`;
               }
               return data;
             },
-            // Custom sorting for status column
             type: 'num',
             render: function (data, type, row) {
               if (type === 'type' || type === 'sort') {
                 return statusSortOrder(data);
               }
               if (type === 'display') {
-                // Add different styling based on status
-                let statusClass = '';
-                if (data === 'Target Hit!') {
-                  statusClass = 'has-text-success has-text-weight-bold';
-                } else if (data === 'Below Target') {
-                  statusClass = 'has-text-info';
-                } else if (data === 'Error' || data === 'No Data') {
-                  statusClass = 'has-text-danger';
-                } else {
-                  statusClass = 'has-text-grey';
-                }
-                return `<span class="${statusClass}">${data}</span>`;
+                const statusClass = getStatusClass(data);
+                return `<span class="status-badge ${statusClass}">${data}</span>`;
               }
               return data;
             }
           }
         ],
-        // Default sorting: Status column (index 3) in ascending order (Target Hit! first)
         order: [[3, 'asc']],
         createdRow: function (row, data, dataIndex) {
           if (data.status === "Target Hit!") {
@@ -254,7 +546,6 @@
         searching: true,
         info: false,
         responsive: true,
-        // Add some additional configuration for better UX
         language: {
           emptyTable: "No stocks found in this watchlist",
           zeroRecords: "No matching stocks found"
@@ -262,74 +553,80 @@
       });
     }
 
-    // --- Data Fetching and Event Listeners ---
-
+    // API functions with loading states
     async function fetchWatchlists() {
       try {
+        showLoading();
         const res = await fetch("/api/watchlists/");
         const data = await res.json();
         watchlists = data.watchlists;
         renderTabs();
       } catch (error) {
         console.error("Failed to fetch watchlists:", error);
+      } finally {
+        hideLoading();
       }
     }
 
     document.getElementById("btn-refresh-sheet").onclick = async () => {
       console.log("Refreshing sheet...");
       try {
+        showLoading();
         const res = await fetch("/api/refresh-sheet/", { method: "POST" });
         const data = await res.json();
         watchlists = data.watchlists;
-        renderTabs(); // Re-render everything from tabs down
+        renderTabs();
         console.log("Sheet refreshed successfully");
       } catch (error) {
         console.error("Failed to refresh sheet:", error);
+      } finally {
+        hideLoading();
       }
     };
 
     document.getElementById("btn-refresh-all").onclick = async () => {
       console.log("Refreshing all prices...");
       try {
+        showLoading();
         const res = await fetch("/api/refresh-all-prices/", { method: "POST" });
         const data = await res.json();
         watchlists = data.watchlists;
-        renderTable(); // Just re-render the current table with new data
+        renderTable();
 
-        // Show processing info if available
         if (data.processing_time) {
           console.log(`All prices refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`);
         }
       } catch (error) {
         console.error("Failed to refresh all prices:", error);
+      } finally {
+        hideLoading();
       }
     };
 
-    // AFTER
     document.getElementById("btn-refresh-tab").onclick = async () => {
       if (!currentTab) return;
       console.log(`Refreshing tab: ${currentTab}`);
       try {
+        showLoading();
         let res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
-
-        // New logic: Only update the data for the specific tab
         let responseData = await res.json();
         watchlists[responseData.tab_name] = responseData.data;
+        renderTable();
 
-        renderTable(); // Re-render the table with the fresh data
-
-        // Show processing info if available
         if (responseData.processing_time) {
           console.log(`Tab ${currentTab} refreshed in ${responseData.processing_time}s (${responseData.total_stocks} stocks)`);
         }
       } catch (error) {
         console.error(`Failed to refresh tab ${currentTab}:`, error);
+      } finally {
+        hideLoading();
       }
     };
 
-    // --- Initial Load ---
-    // Check if watchlists exist on page load, if not show message
-    renderTabs();
+    // Initial load
+    document.addEventListener('DOMContentLoaded', function() {
+      fetchWatchlists();
+    });
   </script>
 </body>
 
