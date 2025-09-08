@@ -12,6 +12,10 @@ from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+import pytz
+from django.http import JsonResponse
+
+IST = pytz.timezone("Asia/Kolkata")
 
 # --- Config ---
 GOOGLE_SHEET_ID = "1qPeDQOzgiCrfp1h32KUyn5CHD509yR8E_ggxfjFtJOc"  # <-- your public Google Sheet ID
@@ -23,11 +27,9 @@ watchlists_lock = threading.Lock()
 
 # Sheet tab → gid mapping
 SHEET_TABS = {
-    "Intraday": "0",        # usually first tab has gid=0
+    "Intraday": "0",
     "SwingRiskyBuy": "1087261693",
     # "FIBOST": "1298523822",
-    # "FIBOMT": "1261523394",
-    # "FIBOLT": "774037465",
 }
 
 # Log file
@@ -214,5 +216,63 @@ def refresh_tab_prices(request, tab_name):
         print("❌ refresh_tab_prices error:", e)
         traceback.print_exc()
         return HttpResponseBadRequest(str(e))
+    
 
+def scheduler_status(request):
+    """Debug endpoint to check scheduler status and timing"""
+    current_ist = datetime.now(IST)
+    current_server = datetime.now()
+    
+    # Check market hours
+    market_start = current_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_end = current_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+    
+    is_market_hours = market_start <= current_ist <= market_end
+    is_weekday = current_ist.weekday() < 5
+    
+    # Get next scheduled times (if you have access to scheduler instance)
+    next_run_times = []
+    try:
+        from django.apps import apps
+        # If you store scheduler instance in app config
+        scheduler = getattr(apps.get_app_config('your_app_name'), 'scheduler', None)
+        if scheduler:
+            jobs = scheduler.get_jobs()
+            for job in jobs:
+                next_run_times.append({
+                    'job_id': job.id,
+                    'next_run': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z') if job.next_run_time else 'None'
+                })
+    except Exception as e:
+        next_run_times = [{'error': str(e)}]
+    
+    return JsonResponse({
+        'current_ist_time': current_ist.strftime('%Y-%m-%d %H:%M:%S %Z'),
+        'current_server_time': current_server.strftime('%Y-%m-%d %H:%M:%S'),
+        'market_hours': {
+            'start': market_start.strftime('%H:%M:%S'),
+            'end': market_end.strftime('%H:%M:%S'),
+            'is_active': is_market_hours
+        },
+        'is_weekday': is_weekday,
+        'should_run': is_market_hours and is_weekday,
+        'timezone_offset': current_ist.strftime('%z'),
+        'next_scheduled_runs': next_run_times
+    })
 
+def manual_price_fetch(request):
+    """Manual trigger for testing"""
+    try:
+        from .tasks import check_and_fetch_prices  # Import the function
+        result = check_and_fetch_prices()
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Price fetch completed',
+            'timestamp': datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S %Z')
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S %Z')
+        })
