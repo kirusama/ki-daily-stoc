@@ -492,7 +492,7 @@
           },
           {
             data: 'target_price',
-            title: 'Target',
+            title: 'Buy at',
             render: function (data, type, row) {
               if (type === 'display' && data) {
                 return '₹' + parseFloat(data).toFixed(2);
@@ -538,7 +538,7 @@
         ],
         order: [[3, 'asc']],
         createdRow: function (row, data, dataIndex) {
-          if (data.status === "Target Hit!") {
+          if (data.status === "Can Buy!") {
             $(row).addClass('target-hit');
           }
         },
@@ -631,3 +631,4 @@
 </body>
 
 </html>
+
