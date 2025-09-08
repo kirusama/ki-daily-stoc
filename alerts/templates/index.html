@@ -339,8 +339,8 @@
 <body>
   <div class="app-container">
     <header class="app-header">
-      <h1 class="app-title"><i class="fas fa-chart-line"></i> Stock Alert Monitor</h1>
-      <p class="app-subtitle">Track your stock targets and get notified when they're hit</p>
+      <h1 class="app-title"><i class="fas fa-chart-line"></i> Stock Monitor</h1>
+      <p class="app-subtitle">Made By K</p>
 
       <!-- Add this -->
       <div class="level-right"></div>
@@ -514,7 +514,7 @@
           },
           {
             data: 'target_price',
-            title: 'Target',
+            title: 'Buy Above',
             render: function (data, type, row) {
               if (type === 'display' && data) {
                 return '₹' + parseFloat(data).toFixed(2);
@@ -560,7 +560,7 @@
         ],
         order: [[3, 'asc']],
         createdRow: function (row, data, dataIndex) {
-          if (data.status === "Target Hit!") {
+          if (data.status === "Can Buy Now!") {
             $(row).addClass('target-hit');
           }
         },
@@ -756,7 +756,7 @@
         } else {
           console.log("⏰ Outside market hours - skipping auto-refresh");
         }
-      }, 1 * 60 * 1000); // 2 minutes
+      }, 5 * 60 * 1000); // 5 minutes
 
       console.log("🔄 Auto-refresh started (every 2 minutes during market hours)");
     }
