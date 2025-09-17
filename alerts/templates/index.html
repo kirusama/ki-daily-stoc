@@ -1,835 +1,735 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Alert Monitor</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stock Alert Monitor</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <style>
-    :root {
-      --primary-color: #2962ff;
-      --primary-light: #e8f0fe;
-      --secondary-color: #0d47a1;
-      --success-color: #2e7d32;
-      --warning-color: #ed6c02;
-      --light-bg: #f8f9fa;
-      --card-bg: #ffffff;
-      --border-color: #e0e0e0;
-      --text-primary: #212121;
-      --text-secondary: #757575;
-      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      --transition: all 0.3s ease;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      background-color: var(--light-bg);
-      color: var(--text-primary);
-      line-height: 1.6;
-      padding: 0;
-      margin: 0;
-      min-height: 100vh;
-    }
-
-    .app-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.5rem;
-    }
-
-    .app-header {
-      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-      color: white;
-      border-radius: 12px;
-      padding: 1.75rem;
-      margin-bottom: 1.75rem;
-      box-shadow: var(--shadow);
-    }
-
-    .app-title {
-      font-size: 1.9rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .app-subtitle {
-      font-size: 1.05rem;
-      opacity: 0.9;
-    }
-
-    .button-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.85rem;
-      margin-bottom: 1.75rem;
-    }
-
-    .app-button {
-      border-radius: 8px;
-      font-weight: 500;
-      transition: var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border: none;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
-    .app-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .tab-container {
-      overflow-x: auto;
-      white-space: nowrap;
-      display: flex;
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 0.75rem;
-      margin-bottom: 1.75rem;
-      box-shadow: var(--shadow);
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      border: 1px solid var(--border-color);
-    }
-
-    .tab-container::-webkit-scrollbar {
-      display: none;
-    }
-
-    .tablink {
-      background-color: transparent;
-      border: none;
-      padding: 0.85rem 1.5rem;
-      cursor: pointer;
-      font-weight: 500;
-      border-radius: 8px;
-      transition: var(--transition);
-      color: var(--text-secondary);
-      margin: 0 3px;
-    }
-
-    .tablink:hover {
-      background-color: var(--primary-light);
-      color: var(--primary-color);
-    }
-
-    .tablink.active {
-      background-color: var(--primary-color);
-      color: white;
-    }
-
-    .table-container {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      margin-bottom: 2rem;
-      border: 1px solid var(--border-color);
-    }
-
-    #stock-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    #stock-table th {
-      background-color: #f5f7ff;
-      font-weight: 600;
-      padding: 1rem 0.85rem;
-      color: var(--text-primary);
-      border-bottom: 2px solid var(--border-color);
-    }
-
-    #stock-table td {
-      padding: 0.85rem;
-      vertical-align: middle;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    #stock-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    #stock-table tr:hover td {
-      background-color: #f9fafc;
-    }
-
-    .status-badge {
-      padding: 0.4rem 0.85rem;
-      border-radius: 50px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      display: inline-block;
-    }
-
-    .status-hit {
-      background-color: #e8f5e9;
-      color: var(--success-color);
-    }
-
-    .status-below {
-      background-color: #e3f2fd;
-      color: var(--primary-color);
-    }
-
-    .status-error {
-      background-color: #ffebee;
-      color: #d32f2f;
-    }
-
-    .status-default {
-      background-color: #f5f5f5;
-      color: var(--text-secondary);
-    }
-
-    .price-up {
-      color: var(--success-color);
-      font-weight: 600;
-    }
-
-    .price-down {
-      color: #d32f2f;
-      font-weight: 600;
-    }
-
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: rgba(255, 255, 255, 0.92);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      flex-direction: column;
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(41, 98, 255, 0.2);
-      border-radius: 50%;
-      border-top-color: var(--primary-color);
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
+    <style>
+      :root {
+        --primary-color: #2962ff;
+        --primary-light: #e8f0fe;
+        --secondary-color: #0d47a1;
+        --success-color: #2e7d32;
+        --warning-color: #ed6c02;
+        --light-bg: #f8f9fa;
+        --card-bg: #ffffff;
+        --border-color: #e0e0e0;
+        --text-primary: #212121;
+        --text-secondary: #757575;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --transition: all 0.3s ease;
       }
-    }
 
-    .notification-card {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 2.5rem;
-      text-align: center;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border-color);
-    }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    .notification-icon {
-      font-size: 3.5rem;
-      color: var(--text-secondary);
-      margin-bottom: 1.5rem;
-    }
+      body {
+        font-family: "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        background-color: var(--light-bg);
+        color: var(--text-primary);
+        line-height: 1.6;
+        padding: 0;
+        margin: 0;
+        min-height: 100vh;
+      }
 
-    /* Mobile optimizations */
-    @media screen and (max-width: 768px) {
       .app-container {
-        padding: 1rem;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1.5rem;
       }
 
       .app-header {
-        padding: 1.5rem;
-        border-radius: 10px;
-        text-align: center;
+        background: linear-gradient(
+          135deg,
+          var(--primary-color),
+          var(--secondary-color)
+        );
+        color: white;
+        border-radius: 12px;
+        padding: 1.75rem;
+        margin-bottom: 1.75rem;
+        box-shadow: var(--shadow);
       }
 
       .app-title {
-        font-size: 1.6rem;
-        justify-content: center;
-      }
-
-      .button-group {
-        flex-direction: column;
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
         gap: 0.75rem;
       }
 
+      .app-subtitle {
+        font-size: 1.05rem;
+        opacity: 0.9;
+      }
+
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        margin-bottom: 1.75rem;
+      }
+
       .app-button {
-        width: 100%;
-        justify-content: center;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .app-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .tab-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        display: flex;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 0.75rem;
+        margin-bottom: 1.75rem;
+        box-shadow: var(--shadow);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        border: 1px solid var(--border-color);
+      }
+
+      .tab-container::-webkit-scrollbar {
+        display: none;
       }
 
       .tablink {
-        padding: 0.7rem 1.2rem;
-        font-size: 0.9rem;
+        background-color: transparent;
+        border: none;
+        padding: 0.85rem 1.5rem;
+        cursor: pointer;
+        font-weight: 500;
+        border-radius: 8px;
+        transition: var(--transition);
+        color: var(--text-secondary);
+        margin: 0 3px;
+      }
+
+      .tablink:hover {
+        background-color: var(--primary-light);
+        color: var(--primary-color);
+      }
+
+      .tablink.active {
+        background-color: var(--primary-color);
+        color: white;
       }
 
       .table-container {
-        overflow-x: auto;
-        border-radius: 10px;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        border: 1px solid var(--border-color);
       }
 
       #stock-table {
-        min-width: 650px;
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
       }
 
-      #stock-table th,
+      #stock-table th {
+        background-color: #f5f7ff;
+        font-weight: 600;
+        padding: 1rem 0.85rem;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border-color);
+      }
+
       #stock-table td {
-        padding: 0.75rem;
-      }
-    }
-
-    @media screen and (max-width: 480px) {
-      .app-container {
-        padding: 0.75rem;
+        padding: 0.85rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-color);
       }
 
-      .app-header {
-        padding: 1.25rem;
+      #stock-table tr:last-child td {
+        border-bottom: none;
       }
 
-      .app-title {
-        font-size: 1.4rem;
+      #stock-table tr:hover td {
+        background-color: #f9fafc;
       }
 
-      .app-subtitle {
-        font-size: 0.95rem;
-      }
-
-      .tablink {
-        padding: 0.6rem 1rem;
+      .status-badge {
+        padding: 0.4rem 0.85rem;
+        border-radius: 50px;
         font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-block;
+      }
+
+      .status-hit {
+        background-color: #e8f5e9;
+        color: var(--success-color);
+      }
+
+      .status-below {
+        background-color: #e3f2fd;
+        color: var(--primary-color);
+      }
+
+      .status-error {
+        background-color: #ffebee;
+        color: #d32f2f;
+      }
+
+      .status-default {
+        background-color: #f5f5f5;
+        color: var(--text-secondary);
+      }
+
+      .price-up {
+        color: var(--success-color);
+        font-weight: 600;
+      }
+
+      .price-down {
+        color: #d32f2f;
+        font-weight: 600;
+      }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.92);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        flex-direction: column;
+      }
+
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(41, 98, 255, 0.2);
+        border-radius: 50%;
+        border-top-color: var(--primary-color);
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .notification-card {
-        padding: 1.5rem;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 2.5rem;
+        text-align: center;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
       }
 
       .notification-icon {
-        font-size: 2.5rem;
+        font-size: 3.5rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
       }
-    }
 
-    #stock-table_filter {
-      padding: 1rem;
-    }
-  </style>
-</head>
+      /* Mobile optimizations */
+      @media screen and (max-width: 768px) {
+        .app-container {
+          padding: 1rem;
+        }
 
-<body>
-  <div class="app-container">
-    <header class="app-header">
-      <h1 class="app-title"><i class="fas fa-chart-line"></i> Stock Monitor</h1>
-      <p class="app-subtitle">Made By K</p>
+        .app-header {
+          padding: 1.5rem;
+          border-radius: 10px;
+          text-align: center;
+        }
 
-      <!-- Add this -->
-      <div class="level-right"></div>
-    </header>
+        .app-title {
+          font-size: 1.6rem;
+          justify-content: center;
+        }
 
+        .button-group {
+          flex-direction: column;
+          gap: 0.75rem;
+        }
 
-    <div class="button-group">
-      <button id="btn-refresh-sheet" class="button is-link app-button">
-        <i class="fas fa-sync-alt"></i> Refresh Sheet
-      </button>
-      <button id="btn-refresh-all" class="button is-success app-button">
-        <i class="fas fa-download"></i> Fetch All Prices
-      </button>
-      <button id="btn-refresh-tab" class="button is-warning app-button">
-        <i class="fas fa-redo"></i> Refresh Current Watchlist
-      </button>
+        .app-button {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .tablink {
+          padding: 0.7rem 1.2rem;
+          font-size: 0.9rem;
+        }
+
+        .table-container {
+          overflow-x: auto;
+          border-radius: 10px;
+        }
+
+        #stock-table {
+          min-width: 650px;
+        }
+
+        #stock-table th,
+        #stock-table td {
+          padding: 0.75rem;
+        }
+      }
+
+      @media screen and (max-width: 480px) {
+        .app-container {
+          padding: 0.75rem;
+        }
+
+        .app-header {
+          padding: 1.25rem;
+        }
+
+        .app-title {
+          font-size: 1.4rem;
+        }
+
+        .app-subtitle {
+          font-size: 0.95rem;
+        }
+
+        .tablink {
+          padding: 0.6rem 1rem;
+          font-size: 0.85rem;
+        }
+
+        .notification-card {
+          padding: 1.5rem;
+        }
+
+        .notification-icon {
+          font-size: 2.5rem;
+        }
+      }
+
+      #stock-table_filter {
+        padding: 1rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <h1 class="app-title">
+          <i class="fas fa-chart-line"></i> Stock Monitor
+        </h1>
+        <p class="app-subtitle">Made By K</p>
+
+        <!-- Add this -->
+        <div class="level-right"></div>
+      </header>
+
+      <div class="button-group">
+        <button id="btn-refresh-sheet" class="button is-link app-button">
+          <i class="fas fa-sync-alt"></i> Refresh Sheet
+        </button>
+        <button id="btn-refresh-all" class="button is-success app-button">
+          <i class="fas fa-download"></i> Fetch All Prices
+        </button>
+        <button id="btn-refresh-tab" class="button is-warning app-button">
+          <i class="fas fa-redo"></i> Refresh Current Watchlist
+        </button>
+      </div>
+
+      <div id="tab-buttons" class="tab-container"></div>
+
+      <div id="table-container" class="table-container"></div>
     </div>
 
-    <div id="tab-buttons" class="tab-container"></div>
+    <div id="loading" class="loading-overlay" style="display: none">
+      <div class="spinner"></div>
+      <p class="mt-3 has-text-weight-semibold">Processing your request...</p>
+    </div>
 
-    <div id="table-container" class="table-container"></div>
-  </div>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
-  <div id="loading" class="loading-overlay" style="display: none;">
-    <div class="spinner"></div>
-    <p class="mt-3 has-text-weight-semibold">Processing your request...</p>
-  </div>
+    <script>
+      let watchlists = {};
+      let currentTab = null;
+      let stockDataTable = null;
+      let autoRefreshInterval = null;
+      let autoRefreshEnabled = true;
 
-  <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
-  <script>
-    let watchlists = {};
-    let currentTab = null;
-    let stockDataTable = null;
-    let autoRefreshInterval = null; // Added missing declaration
-    let autoRefreshEnabled = true;
-
-    // Show loading overlay
-    function showLoading() {
-      document.getElementById('loading').style.display = 'flex';
-    }
-
-    // Hide loading overlay
-    function hideLoading() {
-      document.getElementById('loading').style.display = 'none';
-    }
-
-    // Check if any watchlist needs price data
-    function needsPriceData() {
-      for (const tabName in watchlists) {
-        const stocks = watchlists[tabName];
-        for (const stock of stocks) {
-          // If any stock is missing current price or has "Not Fetched"/"Not Checked" status
-          if (!stock.current_price ||
-            stock.status === "Not Fetched" ||
-            stock.status === "Not Checked") {
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    // Switch tab function
-    function switchTab(tabName, clickedButton) {
-      currentTab = tabName;
-
-      const tablinks = document.querySelectorAll("#tab-buttons .tablink");
-      tablinks.forEach(btn => btn.classList.remove('active'));
-      clickedButton.classList.add('active');
-
-      renderTable();
-    }
-
-    // Render tabs
-    function renderTabs() {
-      const tabContainer = document.getElementById("tab-buttons");
-      tabContainer.innerHTML = "";
-
-      if (Object.keys(watchlists).length === 0) {
-        renderTable();
-        return;
+      /** ===========================
+       *  UI HELPERS
+       *  =========================== */
+      function showLoading() {
+        document.getElementById("loading").style.display = "flex";
       }
 
-      if (!currentTab || !watchlists[currentTab]) {
-        currentTab = Object.keys(watchlists)[0] || null;
+      function hideLoading() {
+        document.getElementById("loading").style.display = "none";
       }
 
-      let activeTabButton = null;
-
-      for (const tabName in watchlists) {
-        const button = document.createElement("button");
-        button.className = "tablink";
-        button.innerText = tabName;
-        button.onclick = () => switchTab(tabName, button);
-        tabContainer.appendChild(button);
-
-        if (tabName === currentTab) {
-          activeTabButton = button;
+      function getStatusClass(status) {
+        switch (status) {
+          case "Target Hit!":
+            return "status-hit";
+          case "Below Target":
+            return "status-below";
+          case "Error":
+          case "No Data":
+            return "status-error";
+          default:
+            return "status-default";
         }
       }
 
-      if (activeTabButton) {
-        activeTabButton.click();
-      } else {
+      function statusSortOrder(status) {
+        const order = {
+          "Target Hit!": 1,
+          "Below Target": 2,
+          "Not Fetched": 3,
+          "Not Checked": 4,
+          "No Data": 5,
+          Error: 6,
+        };
+        return order[status] || 99;
+      }
+
+      /** ===========================
+       *  TABS & TABLE
+       *  =========================== */
+      function switchTab(tabName, clickedButton) {
+        currentTab = tabName;
+        document
+          .querySelectorAll("#tab-buttons .tablink")
+          .forEach((btn) => btn.classList.remove("active"));
+        clickedButton.classList.add("active");
         renderTable();
       }
-    }
 
-    // Status sort order
-    function statusSortOrder(status) {
-      const order = {
-        "Target Hit!": 1,
-        "Below Target": 2,
-        "Not Fetched": 3,
-        "Not Checked": 4,
-        "No Data": 5,
-        "Error": 6
-      };
-      return order[status] || 99;
-    }
+      function renderTabs() {
+        const tabContainer = document.getElementById("tab-buttons");
+        tabContainer.innerHTML = "";
 
-    // Get status badge class
-    function getStatusClass(status) {
-      switch (status) {
-        case "Target Hit!":
-          return "status-hit";
-        case "Below Target":
-          return "status-below";
-        case "Error":
-        case "No Data":
-          return "status-error";
-        default:
-          return "status-default";
-      }
-    }
+        if (!Object.keys(watchlists).length) {
+          renderTable();
+          return;
+        }
 
-    // Render table
-    function renderTable() {
-      const tableData = (currentTab && watchlists[currentTab]) ? watchlists[currentTab] : [];
+        if (!currentTab || !watchlists[currentTab]) {
+          currentTab = Object.keys(watchlists)[0];
+        }
 
-      if (stockDataTable) {
-        stockDataTable.destroy();
+        for (const tabName in watchlists) {
+          const button = document.createElement("button");
+          button.className = "tablink";
+          button.innerText = tabName;
+          button.onclick = () => switchTab(tabName, button);
+          tabContainer.appendChild(button);
+
+          if (tabName === currentTab) button.classList.add("active");
+        }
+
+        renderTable();
       }
 
-      const container = document.getElementById("table-container");
+      function renderTable() {
+        const tableData =
+          currentTab && watchlists[currentTab] ? watchlists[currentTab] : [];
+        if (stockDataTable) stockDataTable.destroy();
 
-      if (Object.keys(watchlists).length === 0) {
-        container.innerHTML = `
+        const container = document.getElementById("table-container");
+
+        if (!Object.keys(watchlists).length) {
+          container.innerHTML = `
           <div class="notification-card">
-            <div class="notification-icon">
-              <i class="fas fa-folder-open"></i>
-            </div>
+            <div class="notification-icon"><i class="fas fa-folder-open"></i></div>
             <h3 class="title is-4">No watchlists found</h3>
             <p class="subtitle is-6">Click the "Refresh Sheet" button to load your data</p>
           </div>
         `;
-        return;
+          return;
+        }
+
+        container.innerHTML = `<table id="stock-table" class="display" style="width:100%"></table>`;
+
+        stockDataTable = $("#stock-table").DataTable({
+          data: tableData,
+          columns: [
+            {
+              data: "scrip_name",
+              title: "Scrip",
+              className: "has-text-weight-semibold",
+            },
+            {
+              data: "target_price",
+              title: "Buy Above",
+              render: (data) =>
+                data ? "₹" + parseFloat(data).toFixed(2) : data,
+            },
+            {
+              data: "current_price",
+              title: "Current",
+              render: (data, type, row) => {
+                if (data && data > 0) {
+                  const priceClass =
+                    parseFloat(data) >= parseFloat(row.target_price)
+                      ? "price-up"
+                      : "price-down";
+                  return `<span class="${priceClass}">₹${parseFloat(
+                    data
+                  ).toFixed(2)}</span>`;
+                }
+                return "-";
+              },
+            },
+            {
+              data: "status",
+              title: "Status",
+              render: (data, type) => {
+                if (type === "sort" || type === "type")
+                  return statusSortOrder(data);
+                const statusClass = getStatusClass(data);
+                return `<span class="status-badge ${statusClass}">${data}</span>`;
+              },
+            },
+          ],
+          order: [[3, "asc"]],
+          paging: false,
+          searching: true,
+          info: false,
+          responsive: true,
+          language: {
+            emptyTable: "No stocks found in this watchlist",
+            zeroRecords: "No matching stocks found",
+          },
+        });
       }
 
-      container.innerHTML = `<table id="stock-table" class="display" style="width:100%"></table>`;
-
-      stockDataTable = $('#stock-table').DataTable({
-        data: tableData,
-        columns: [
-          {
-            data: 'scrip_name',
-            title: 'Scrip',
-            className: 'has-text-weight-semibold'
-          },
-          {
-            data: 'target_price',
-            title: 'Buy Above',
-            render: function (data, type, row) {
-              if (type === 'display' && data) {
-                return '₹' + parseFloat(data).toFixed(2);
-              }
-              return data;
-            }
-          },
-          {
-            data: 'current_price',
-            title: 'Current',
-            render: function (data, type, row) {
-              if (type === 'display' && data && data > 0) {
-                const target = parseFloat(row.target_price);
-                const current = parseFloat(data);
-                const priceClass = current >= target ? 'price-up' : 'price-down';
-                return `<span class="${priceClass}">₹${current.toFixed(2)}</span>`;
-              }
-              return data || '-';
-            }
-          },
-          {
-            data: 'status',
-            title: 'Status',
-            render: function (data, type, row) {
-              if (type === 'display') {
-                const statusClass = getStatusClass(data);
-                return `<span class="status-badge ${statusClass}">${data}</span>`;
-              }
-              return data;
-            },
-            type: 'num',
-            render: function (data, type, row) {
-              if (type === 'type' || type === 'sort') {
-                return statusSortOrder(data);
-              }
-              if (type === 'display') {
-                const statusClass = getStatusClass(data);
-                return `<span class="status-badge ${statusClass}">${data}</span>`;
-              }
-              return data;
-            }
+      /** ===========================
+       *  API CALLS
+       *  =========================== */
+      async function updateWatchlists(url, method = "POST") {
+        try {
+          showLoading();
+          const res = await fetch(url, { method });
+          const data = await res.json();
+          if (data.watchlists) {
+            watchlists = data.watchlists;
+            renderTabs();
           }
-        ],
-        order: [[3, 'asc']],
-        createdRow: function (row, data, dataIndex) {
-          if (data.status === "Can Buy Now!") {
-            $(row).addClass('target-hit');
-          }
-        },
-        paging: false,
-        searching: true,
-        info: false,
-        responsive: true,
-        language: {
-          emptyTable: "No stocks found in this watchlist",
-          zeroRecords: "No matching stocks found"
+          return data;
+        } catch (error) {
+          console.error("API error:", error);
+        } finally {
+          hideLoading();
         }
-      });
-    }
+      }
 
-    // API functions with loading states
-    async function fetchWatchlists() {
-      try {
-        showLoading();
-        const res = await fetch("/api/watchlists/");
-        const data = await res.json();
-        watchlists = data.watchlists;
-        renderTabs();
-
-        // After rendering, check if we need to fetch prices
-        if (Object.keys(watchlists).length > 0 && needsPriceData()) {
-          console.log("No price data found, automatically refreshing prices...");
+      async function fetchWatchlists() {
+        const data = await updateWatchlists("/api/watchlists/", "GET");
+        if (data && needsPriceData()) {
+          console.log("No price data found, refreshing prices...");
           await refreshAllPrices();
         }
-      } catch (error) {
-        console.error("Failed to fetch watchlists:", error);
-      } finally {
-        hideLoading();
       }
-    }
 
-    // Separate function to refresh all prices
-    async function refreshAllPrices() {
-      console.log("Refreshing all prices...");
-      try {
-        showLoading();
-        const res = await fetch("/api/refresh-all-prices/", { method: "POST" });
-        const data = await res.json();
-        watchlists = data.watchlists;
-        renderTable();
-
-        if (data.processing_time) {
-          console.log(`All prices refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`);
+      async function refreshAllPrices() {
+        const data = await updateWatchlists("/api/refresh-all-prices/");
+        if (data?.processing_time) {
+          console.log(
+            `All prices refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`
+          );
         }
-      } catch (error) {
-        console.error("Failed to refresh all prices:", error);
-      } finally {
-        hideLoading();
       }
-    }
 
-    // Store original button handlers before modifying them
-    const originalRefreshSheet = async () => {
-      console.log("Refreshing sheet...");
-      try {
-        showLoading();
-        const res = await fetch("/api/refresh-sheet/", { method: "POST" });
-        const data = await res.json();
-        watchlists = data.watchlists;
-        renderTabs();
-        console.log("Sheet refreshed successfully");
-      } catch (error) {
-        console.error("Failed to refresh sheet:", error);
-      } finally {
-        hideLoading();
+      async function refreshSheet() {
+        const data = await updateWatchlists("/api/refresh-sheet/");
+        if (data) console.log("Sheet refreshed successfully");
       }
-    };
 
-    const originalRefreshAll = async () => {
-      console.log("Refreshing all prices...");
-      try {
-        showLoading();
-        const res = await fetch("/api/refresh-all-prices/", { method: "POST" });
-        const data = await res.json();
-        watchlists = data.watchlists;
-        renderTable();
-
-        if (data.processing_time) {
-          console.log(`All prices refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`);
+      async function refreshTab() {
+        if (!currentTab) return;
+        const data = await updateWatchlists(`/api/refresh-tab/${currentTab}/`);
+        if (data?.processing_time) {
+          console.log(
+            `Tab ${currentTab} refreshed in ${data.processing_time}s (${data.total_stocks} stocks)`
+          );
         }
-      } catch (error) {
-        console.error("Failed to refresh all prices:", error);
-      } finally {
-        hideLoading();
       }
-    };
 
-    const originalRefreshTab = async () => {
-      if (!currentTab) return;
-      console.log(`Refreshing tab: ${currentTab}`);
-      try {
-        showLoading();
-        let res = await fetch(`/api/refresh-tab/${currentTab}/`, { method: "POST" });
-        let responseData = await res.json();
-        watchlists[responseData.tab_name] = responseData.data;
-        renderTable();
-
-        if (responseData.processing_time) {
-          console.log(`Tab ${currentTab} refreshed in ${responseData.processing_time}s (${responseData.total_stocks} stocks)`);
-        }
-      } catch (error) {
-        console.error(`Failed to refresh tab ${currentTab}:`, error);
-      } finally {
-        hideLoading();
+      function needsPriceData() {
+        return Object.values(watchlists).some((stocks) =>
+          stocks.some(
+            (stock) =>
+              !stock.current_price ||
+              stock.status === "Not Fetched" ||
+              stock.status === "Not Checked"
+          )
+        );
       }
-    };
 
-    // Set up button handlers
-    document.addEventListener('DOMContentLoaded', function () {
-      document.getElementById("btn-refresh-sheet").onclick = async () => {
-        const wasEnabled = autoRefreshEnabled;
-        autoRefreshEnabled = false; // Temporarily disable
+      /** ===========================
+       *  AUTO REFRESH
+       *  =========================== */
+      function updateAutoRefreshUI() {
+        const button = document.getElementById("btn-toggle-auto-refresh");
+        const status = document.getElementById("auto-refresh-status");
 
-        await originalRefreshSheet();
-
-        autoRefreshEnabled = wasEnabled; // Re-enable if it was enabled
-      };
-
-      document.getElementById("btn-refresh-all").onclick = async () => {
-        const wasEnabled = autoRefreshEnabled;
-        autoRefreshEnabled = false;
-
-        await originalRefreshAll();
-
-        autoRefreshEnabled = wasEnabled;
-      };
-
-      document.getElementById("btn-refresh-tab").onclick = async () => {
-        const wasEnabled = autoRefreshEnabled;
-        autoRefreshEnabled = false;
-
-        await originalRefreshTab();
-
-        autoRefreshEnabled = wasEnabled;
-      };
-    });
-
-    // Auto-refresh function
-    async function autoRefreshPrices() {
-      if (!autoRefreshEnabled) return;
-
-      try {
-        console.log("🔄 Auto-refreshing prices...");
-        const res = await fetch("/api/watchlists/");
-        const data = await res.json();
-
-        // Only update if data actually changed
-        if (JSON.stringify(watchlists) !== JSON.stringify(data.watchlists)) {
-          watchlists = data.watchlists;
-          renderTable();
-          console.log("✅ Auto-refresh completed - data updated");
+        if (autoRefreshEnabled) {
+          button.textContent = "Disable Auto-Refresh";
+          button.className = "button is-warning";
+          status.className = "tag is-success";
+          status.innerHTML = `<span class="icon"><i class="fas fa-sync-alt"></i></span><span>Auto-Refresh ON</span>`;
         } else {
-          console.log("ℹ️ Auto-refresh completed - no changes");
+          button.textContent = "Enable Auto-Refresh";
+          button.className = "button is-success";
+          status.className = "tag is-danger";
+          status.innerHTML = `<span class="icon"><i class="fas fa-pause-circle"></i></span><span>Auto-Refresh OFF</span>`;
         }
-      } catch (error) {
-        console.error("❌ Auto-refresh failed:", error);
-      }
-    }
-
-    // Start auto-refresh (every 2 minutes during market hours)
-    function startAutoRefresh() {
-      if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
       }
 
-      // Check if we're in market hours (9:15 AM to 3:30 PM IST)
-      function isMarketHours() {
-        const now = new Date();
-        const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
-        const hours = istTime.getUTCHours();
-        const minutes = istTime.getUTCMinutes();
-        const day = istTime.getUTCDay(); // 0=Sunday, 1=Monday, etc.
+      async function autoRefreshPrices() {
+        if (!autoRefreshEnabled) return;
+        try {
+          console.log("🔄 Auto-refreshing prices...");
+          const res = await fetch("/api/watchlists/");
+          const data = await res.json();
 
-        // Check if it's a weekday (Mon-Fri)
-        if (day === 0 || day === 6) return false;
-
-        // Check market hours (9:15 AM to 3:30 PM)
-        const currentTimeInMinutes = hours * 60 + minutes;
-        const marketStart = 9 * 60 + 15; // 9:15 AM
-        const marketEnd = 15 * 60 + 30;  // 3:30 PM
-
-        return currentTimeInMinutes >= marketStart && currentTimeInMinutes <= marketEnd;
+          if (JSON.stringify(watchlists) !== JSON.stringify(data.watchlists)) {
+            watchlists = data.watchlists;
+            renderTable();
+            console.log("✅ Auto-refresh completed - data updated");
+          } else {
+            console.log("ℹ️ Auto-refresh completed - no changes");
+          }
+        } catch (error) {
+          console.error("❌ Auto-refresh failed:", error);
+        }
       }
 
-      // Auto-refresh every 2 minutes, but only during market hours
-      autoRefreshInterval = setInterval(() => {
-        if (isMarketHours()) {
-          autoRefreshPrices();
+      function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+
+        function isMarketHours() {
+          const now = new Date();
+          const ist = new Date(
+            now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+          );
+          const h = ist.getHours(),
+            m = ist.getMinutes(),
+            day = ist.getDay();
+          if (day === 0 || day === 6) return false; // weekend
+          const time = h * 60 + m;
+          return time >= 9 * 60 + 15 && time <= 15 * 60 + 30;
+        }
+
+        autoRefreshInterval = setInterval(() => {
+          if (isMarketHours()) {
+            autoRefreshPrices();
+          } else {
+            console.log("⏰ Outside market hours - skipping auto-refresh");
+          }
+        }, 2 * 60 * 1000); // 2 minutes
+        console.log(
+          "🔄 Auto-refresh started (every 2 minutes during market hours)"
+        );
+      }
+
+      function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+        }
+        console.log("⏹️ Auto-refresh stopped");
+      }
+
+      function toggleAutoRefresh() {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        if (autoRefreshEnabled) {
+          startAutoRefresh();
         } else {
-          console.log("⏰ Outside market hours - skipping auto-refresh");
+          stopAutoRefresh();
         }
-      }, 5 * 60 * 1000); // 5 minutes
-
-      console.log("🔄 Auto-refresh started (every 2 minutes during market hours)");
-    }
-
-    // Stop auto-refresh
-    function stopAutoRefresh() {
-      if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
+        updateAutoRefreshUI();
       }
-      console.log("⏹️ Auto-refresh stopped");
-    }
 
-    // Toggle auto-refresh
-    function toggleAutoRefresh() {
-      autoRefreshEnabled = !autoRefreshEnabled;
-      const button = document.getElementById("btn-toggle-auto-refresh");
+      function addAutoRefreshUI() {
+        const container = document.querySelector(".level-right");
 
-      if (autoRefreshEnabled) {
-        button.textContent = "Disable Auto-Refresh";
-        button.className = "button is-warning";
+        const toggleBtn = document.createElement("div");
+        toggleBtn.className = "level-item";
+        toggleBtn.innerHTML = `
+        <button id="btn-toggle-auto-refresh" class="button is-warning" onclick="toggleAutoRefresh()">
+          Disable Auto-Refresh
+        </button>`;
+
+        const status = document.createElement("div");
+        status.className = "level-item";
+        status.innerHTML = `<span id="auto-refresh-status" class="tag is-success">
+          <span class="icon"><i class="fas fa-sync-alt"></i></span>
+          <span>Auto-Refresh ON</span>
+        </span>`;
+
+        container.prepend(status);
+        container.prepend(toggleBtn);
+      }
+
+      /** ===========================
+       *  INIT
+       *  =========================== */
+      document.addEventListener("DOMContentLoaded", () => {
+        fetchWatchlists();
+        addAutoRefreshUI();
         startAutoRefresh();
-      } else {
-        button.textContent = "Enable Auto-Refresh";
-        button.className = "button is-success";
-        stopAutoRefresh();
-      }
-    }
+        updateAutoRefreshUI();
 
-    // Add auto-refresh status indicator
-    function addAutoRefreshUI() {
-      const buttonContainer = document.querySelector('.level-right');
+        document.getElementById("btn-refresh-sheet").onclick = refreshSheet;
+        document.getElementById("btn-refresh-all").onclick = refreshAllPrices;
+        document.getElementById("btn-refresh-tab").onclick = refreshTab;
 
-      // Add toggle button
-      const toggleButton = document.createElement('div');
-      toggleButton.className = 'level-item';
-      toggleButton.innerHTML = `
-    <button id="btn-toggle-auto-refresh" class="button is-warning" onclick="toggleAutoRefresh()">
-      Disable Auto-Refresh
-    </button>
-  `;
-
-      // Add status indicator
-      const statusIndicator = document.createElement('div');
-      statusIndicator.className = 'level-item';
-      statusIndicator.innerHTML = `
-    <span id="auto-refresh-status" class="tag is-success">
-      <span class="icon">
-        <i class="fas fa-sync-alt"></i>
-      </span>
-      <span>Auto-Refresh ON</span>
-    </span>
-  `;
-
-      buttonContainer.insertBefore(toggleButton, buttonContainer.firstChild);
-      buttonContainer.insertBefore(statusIndicator, buttonContainer.firstChild);
-    }
-
-    // Update the DOMContentLoaded event
-    document.addEventListener('DOMContentLoaded', function () {
-      fetchWatchlists();
-      addAutoRefreshUI();
-      startAutoRefresh();
-
-      // Also refresh when user becomes active (focuses on tab)
-      document.addEventListener('visibilitychange', function () {
-        if (!document.hidden && autoRefreshEnabled) {
-          console.log("👁️ Page became visible - refreshing data");
-          autoRefreshPrices();
-        }
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden && autoRefreshEnabled) {
+            console.log("👁️ Page visible - refreshing data");
+            autoRefreshPrices();
+          }
+        });
       });
-    });
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>
